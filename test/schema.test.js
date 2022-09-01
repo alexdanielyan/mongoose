@@ -2206,6 +2206,41 @@ describe('schema', function() {
     assert.ok(doc.child._id);
   });
 
+  it('supports defining `_id: false` on document arrays (gh-8450)', function() {
+    const nestedSchema = Schema({ some: String });
+    let parentSchema = Schema({
+      arrayed: {
+        type: [{
+          type: nestedSchema,
+          _id: false
+        }]
+      }
+    });
+
+    assert.ok(!parentSchema.path('arrayed').schema.path('_id'));
+
+    parentSchema = Schema({
+      arrayed: {
+        type: [{
+          type: nestedSchema
+        }],
+        _id: false
+      }
+    });
+
+    assert.ok(!parentSchema.path('arrayed').schema.path('_id'));
+
+    parentSchema = Schema({
+      arrayed: {
+        type: [{
+          type: nestedSchema
+        }]
+      }
+    });
+
+    assert.ok(parentSchema.path('arrayed').schema.path('_id').auto);
+  });
+
   describe('pick() (gh-8207)', function() {
     it('works with nested paths', function() {
       const schema = Schema({
@@ -2338,5 +2373,18 @@ describe('schema', function() {
       }
       assert.ok(threw);
     });
+  });
+
+  it('copies `.add()`-ed paths when calling `.add()` with a schema argument (gh-8429)', function() {
+    const ToySchema = Schema();
+    ToySchema.add({ name: String, color: String, price: Number });
+
+    const TurboManSchema = Schema();
+    TurboManSchema.add(ToySchema).add({ year: Number });
+
+    assert.equal(TurboManSchema.path('name').instance, 'String');
+    assert.equal(TurboManSchema.path('color').instance, 'String');
+    assert.equal(TurboManSchema.path('price').instance, 'Number');
+    assert.equal(TurboManSchema.path('year').instance, 'Number');
   });
 });

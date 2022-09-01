@@ -588,6 +588,28 @@ describe('types.documentarray', function() {
       assert.equal(friendsNames.length, 2);
       assert.equal(friendsNames[1], 'Sam');
     });
+
+    it('slice() after map() works (gh-8399)', function() {
+      const MyModel = db.model('gh8399', Schema({
+        myArray: [{ name: String }]
+      }));
+
+      const doc = new MyModel({
+        myArray: [{ name: 'a' }, { name: 'b' }]
+      });
+      let myArray = doc.myArray;
+
+      myArray = myArray.map(val => ({ name: `${val.name} mapped` }));
+
+      myArray.splice(1, 1, { name: 'c' });
+      myArray.splice(2, 0, { name: 'd' });
+
+      assert.deepEqual(myArray.map(v => v.name), [
+        'a mapped',
+        'c',
+        'd'
+      ]);
+    });
   });
 
   it('cleans modified subpaths on splice() (gh-7249)', function() {
@@ -617,5 +639,32 @@ describe('types.documentarray', function() {
 
       assert.deepEqual(parent.toObject().children, [{ name: '3' }]);
     });
+  });
+
+  it('modifies ownerDocument() on set (gh-8479)', function() {
+    const nestedArraySchema = Schema({
+      name: String,
+      subDocArray: [{ name: String }]
+    });
+
+    const Model = db.model('Test', nestedArraySchema);
+
+    const doc1 = new Model({
+      name: 'doc1',
+      subDocArray: [{
+        name: 'subDoc'
+      }]
+    });
+    const doc2 = new Model({
+      name: 'doc2',
+      subDocArray: [{
+        name: 'subDoc'
+      }]
+    });
+
+    doc1.subDocArray = doc2.subDocArray;
+
+    assert.equal(doc2.subDocArray[0].ownerDocument().name, 'doc2');
+    assert.equal(doc1.subDocArray[0].ownerDocument().name, 'doc1');
   });
 });

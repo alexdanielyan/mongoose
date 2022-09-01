@@ -186,14 +186,16 @@ before(function(done) {
   dropDBs(done);
 });
 
-after(function() {
+after(function(done) {
   dropDBs(() => {});
+
+  // Give `dropDatabase()` some time to run
+  setTimeout(() => done(), 250);
 });
 
 module.exports.server = server = new Server('mongod', {
   port: 27000,
-  dbpath: './data/db/27000',
-  storageEngine: 'mmapv1'
+  dbpath: './data/db/27000'
 });
 
 beforeEach(function() {
