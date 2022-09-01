@@ -4077,7 +4077,8 @@ describe('Model', function() {
       const Location = db.model('Test', LocationSchema);
 
       return co(function*() {
-        yield Location.collection.drop();
+        yield Location.collection.drop().catch(() => {});
+        yield Location.createCollection();
         yield Location.createIndexes();
 
         yield Location.create({
@@ -5019,6 +5020,32 @@ describe('Model', function() {
           assert.deepEqual(docs[0].toObject().grades, [95, 92, 90]);
           assert.deepEqual(docs[1].toObject().grades, [98, 100, 100]);
           assert.deepEqual(docs[2].toObject().grades, [95, 110, 100]);
+        });
+      });
+
+      it('avoids unused array filter error (gh-9468)', function() {
+        return co(function*() {
+          const MyModel = db.model('Test', new Schema({
+            _id: Number,
+            grades: [Number]
+          }));
+
+          yield MyModel.create([
+            { _id: 1, grades: [95, 92, 90] },
+            { _id: 2, grades: [98, 100, 102] },
+            { _id: 3, grades: [95, 110, 100] }
+          ]);
+
+          yield MyModel.updateMany({}, { $set: { 'grades.0': 100 } }, {
+            arrayFilters: [{
+              element: { $gte: 95 }
+            }]
+          });
+
+          const docs = yield MyModel.find().sort({ _id: 1 });
+          assert.deepEqual(docs[0].toObject().grades, [100, 92, 90]);
+          assert.deepEqual(docs[1].toObject().grades, [100, 100, 102]);
+          assert.deepEqual(docs[2].toObject().grades, [100, 110, 100]);
         });
       });
 
@@ -6251,6 +6278,18 @@ describe('Model', function() {
         assert.deepEqual(res.map(v => v.name), ['alpha', 'Zeta']);
       });
     });
+
+    it('createCollection() handles NamespaceExists errors (gh-9447)', function() {
+      const userSchema = new Schema({ name: String });
+      const Model = db.model('User', userSchema);
+
+      return co(function*() {
+        yield Model.collection.drop().catch(() => {});
+
+        yield Model.createCollection();
+        yield Model.createCollection();
+      });
+    });
   });
 
   it('dropDatabase() after init allows re-init (gh-6967)', function() {
@@ -6866,6 +6905,81 @@ describe('Model', function() {
 
       assert.equal(user.age, 25);
       assert.deepEqual(user.friends, ['Sam']);
+    });
+  });
+
+  it('allows calling `create()` after `bulkWrite()` (gh-9350)', function() {
+    const schema = Schema({ foo: Boolean });
+    const Model = db.model('Test', schema);
+
+    return co(function*() {
+      yield Model.bulkWrite([
+        { insertOne: { document: { foo: undefined } } },
+        { updateOne: { filter: {}, update: { $set: { foo: true } } } }
+      ]);
+
+      yield Model.create({ foo: undefined });
+
+      const docs = yield Model.find();
+      assert.equal(docs.length, 2);
+    });
+  });
+
+  it('skips applying init hooks if `document` option set to `false` (gh-9316)', function() {
+    const schema = new Schema({ name: String });
+    let called = 0;
+    schema.post(/.*/, { query: true, document: false }, function test() {
+      ++called;
+    });
+
+    const Model = db.model('Test', schema);
+
+    const doc = new Model();
+    doc.init({ name: 'test' });
+    assert.equal(called, 0);
+  });
+
+  it('retains atomics after failed `save()` (gh-9327)', function() {
+    const schema = new Schema({ arr: [String] });
+    const Test = db.model('Test', schema);
+
+    return co(function*() {
+      const doc = yield Test.create({ arr: [] });
+
+      yield Test.deleteMany({});
+
+      doc.arr.push('test');
+      const err = yield doc.save().then(() => null, err => err);
+      assert.ok(err);
+
+      const delta = doc.getChanges();
+      assert.ok(delta.$push);
+      assert.ok(delta.$push.arr);
+    });
+  });
+
+  it('doesnt wipe out changes made while `save()` is in flight (gh-9327)', function() {
+    const schema = new Schema({ num1: Number, num2: Number });
+    const Test = db.model('Test', schema);
+
+    return co(function*() {
+      const doc = yield Test.create({});
+
+      doc.num1 = 1;
+      doc.num2 = 1;
+      const p = doc.save();
+
+      yield cb => setTimeout(cb, 0);
+
+      doc.num1 = 2;
+      doc.num2 = 2;
+      yield p;
+
+      yield doc.save();
+
+      const fromDb = yield Test.findById(doc._id);
+      assert.equal(fromDb.num1, 2);
+      assert.equal(fromDb.num2, 2);
     });
   });
 

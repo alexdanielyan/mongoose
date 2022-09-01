@@ -3128,6 +3128,25 @@ describe('model: updateOne: ', function() {
     });
   });
 
+  it('updating a map path underneath a single nested subdoc (gh-9298)', function() {
+    const schema = Schema({
+      cities: {
+        type: Map,
+        of: Schema({ population: Number })
+      }
+    });
+    const Test = db.model('Test', Schema({ country: schema }));
+
+    return co(function*() {
+      yield Test.create({});
+
+      yield Test.updateOne({}, { 'country.cities.newyork.population': '10000' });
+
+      const updated = yield Test.findOne({}).lean();
+      assert.strictEqual(updated.country.cities.newyork.population, 10000);
+    });
+  });
+
   it('overwrite an array with empty (gh-7135)', function() {
     const ElementSchema = Schema({
       a: { type: String, required: true }
@@ -3309,19 +3328,29 @@ describe('model: updateOne: ', function() {
     });
   });
 
-  it('moves $set of immutable properties to $setOnInsert (gh-8467)', function() {
+  it('moves $set of immutable properties to $setOnInsert (gh-8467) (gh-9537)', function() {
+    const childSchema = Schema({ name: String });
     const Model = db.model('Test', Schema({
       name: String,
-      age: { type: Number, default: 25, immutable: true }
+      age: { type: Number, default: 25, immutable: true },
+      child: { type: childSchema, immutable: true }
     }));
 
     const _opts = { upsert: true, setDefaultsOnInsert: true };
 
     return co(function*() {
-      yield Model.updateOne({ name: 'John' }, { name: 'John', age: 20 }, _opts);
+      yield Model.deleteMany({});
+      yield Model.updateOne({}, { name: 'John', age: 20, child: { name: 'test' } }, _opts);
 
       const doc = yield Model.findOne().lean();
       assert.equal(doc.age, 20);
+      assert.equal(doc.name, 'John');
+      assert.equal(doc.child.name, 'test');
+
+      yield Model.updateOne({}, { name: 'new', age: 29, child: { name: 'new' } }, _opts);
+      assert.equal(doc.age, 20);
+      assert.equal(doc.name, 'John');
+      assert.equal(doc.child.name, 'test');
     });
   });
 
@@ -3523,6 +3552,30 @@ describe('model: updateOne: ', function() {
       assert.ok(err);
       assert.ok(err.errors['nested.arr.0.name']);
       assert.ok(!err.errors['nested']);
+    });
+  });
+
+  it('handles spread docs (gh-9518)', function() {
+    const schema = new mongoose.Schema({
+      name: String,
+      children: [{ name: String }]
+    });
+
+    const Person = db.model('Person', schema);
+
+    return co(function*() {
+      const doc = yield Person.create({
+        name: 'Anakin',
+        children: [{ name: 'Luke' }]
+      });
+
+      doc.children[0].name = 'Luke Skywalker';
+      const update = { 'children.0': Object.assign({}, doc.children[0]) };
+
+      yield Person.updateOne({ _id: doc._id }, update);
+
+      const fromDb = yield Person.findById(doc);
+      assert.equal(fromDb.children[0].name, 'Luke Skywalker');
     });
   });
 });
