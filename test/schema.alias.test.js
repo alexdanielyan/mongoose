@@ -23,19 +23,23 @@ describe('schema alias option', function() {
     db.close(done);
   });
 
+  beforeEach(() => db.deleteModel(/.*/));
+  afterEach(() => require('./util').clearTestData(db));
+  afterEach(() => require('./util').stopRemainingOps(db));
+
   it('works with all basic schema types', function(done) {
     const schema = new Schema({
-      string:   { type: String, alias: 'StringAlias' },
-      number:   { type: Number, alias: 'NumberAlias' },
-      date:     { type: Date, alias: 'DateAlias' },
-      buffer:   { type: Buffer, alias: 'BufferAlias' },
-      boolean:  { type: Boolean, alias: 'BooleanAlias' },
-      mixed:    { type: Schema.Types.Mixed, alias: 'MixedAlias' },
-      objectId: { type: Schema.Types.ObjectId, alias: 'ObjectIdAlias'},
-      array:    { type: [], alias: 'ArrayAlias' }
+      string: { type: String, alias: 'StringAlias' },
+      number: { type: Number, alias: 'NumberAlias' },
+      date: { type: Date, alias: 'DateAlias' },
+      buffer: { type: Buffer, alias: 'BufferAlias' },
+      boolean: { type: Boolean, alias: 'BooleanAlias' },
+      mixed: { type: Schema.Types.Mixed, alias: 'MixedAlias' },
+      objectId: { type: Schema.Types.ObjectId, alias: 'ObjectIdAlias' },
+      array: { type: [], alias: 'ArrayAlias' }
     });
 
-    const S = db.model('AliasSchemaType', schema);
+    const S = db.model('Test', schema);
     S.create({
       string: 'hello',
       number: 1,
@@ -64,18 +68,18 @@ describe('schema alias option', function() {
   it('works with nested schema types', function(done) {
     const schema = new Schema({
       nested: {
-        string:   { type: String, alias: 'StringAlias' },
-        number:   { type: Number, alias: 'NumberAlias' },
-        date:     { type: Date, alias: 'DateAlias' },
-        buffer:   { type: Buffer, alias: 'BufferAlias' },
-        boolean:  { type: Boolean, alias: 'BooleanAlias' },
-        mixed:    { type: Schema.Types.Mixed, alias: 'MixedAlias' },
-        objectId: { type: Schema.Types.ObjectId, alias: 'ObjectIdAlias'},
-        array:    { type: [], alias: 'ArrayAlias' }
+        string: { type: String, alias: 'StringAlias' },
+        number: { type: Number, alias: 'NumberAlias' },
+        date: { type: Date, alias: 'DateAlias' },
+        buffer: { type: Buffer, alias: 'BufferAlias' },
+        boolean: { type: Boolean, alias: 'BooleanAlias' },
+        mixed: { type: Schema.Types.Mixed, alias: 'MixedAlias' },
+        objectId: { type: Schema.Types.ObjectId, alias: 'ObjectIdAlias' },
+        array: { type: [], alias: 'ArrayAlias' }
       }
     });
 
-    const S = db.model('AliasNestedSchemaType', schema);
+    const S = db.model('Test', schema);
     S.create({
       nested: {
         string: 'hello',
@@ -141,7 +145,8 @@ describe('schema alias option', function() {
       }
     });
     // acquit:ignore:start
-    const Parent = mongoose.model('gh6671', parentSchema);
+    mongoose.deleteModel(/Test/);
+    const Parent = mongoose.model('Test', parentSchema);
     const doc = new Parent({
       c: {
         name: 'foo'

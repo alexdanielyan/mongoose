@@ -6,7 +6,7 @@ const symbols = require('../../lib/helpers/symbols');
 const ObjectId = require('../../lib/types/objectid');
 const Decimal = require('../../lib/types/decimal128');
 
-describe.only('clone', () => {
+describe('clone', () => {
   describe('falsy', () => {
     it('is null when null', () => {
       assert.deepStrictEqual(clone(null), null);
@@ -170,7 +170,7 @@ describe.only('clone', () => {
         [symbols.schemaTypeSymbol]: 'MyType',
         clone() {
           return {
-            myAttr: this.myAttr,
+            myAttr: this.myAttr
           };
         }
       };
@@ -204,7 +204,7 @@ describe.only('clone', () => {
     it('does nothing', () => {
       class BeeSon {
         constructor() { this.myAttr = 'myAttrVal'; }
-        toBSON( ) {}
+        toBSON() {}
       }
       const base = new BeeSon();
       const cloned = clone(base, { bson: true });

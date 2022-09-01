@@ -23,7 +23,9 @@ describe('validation docs', function() {
    *
    * - Validation is defined in the [SchemaType](./schematypes.html)
    * - Validation is [middleware](./middleware.html). Mongoose registers validation as a `pre('save')` hook on every schema by default.
+   * - You can disable automatic validation before save by setting the [validateBeforeSave](./guide.html#validateBeforeSave) option
    * - You can manually run validation using `doc.validate(callback)` or `doc.validateSync()`
+   * - You can manually mark a field as invalid (causing validation to fail) by using [`doc.invalidate(...)`](./api.html#document_Document-invalidate)
    * - Validators are not run on undefined values. The only exception is the [`required` validator](./api.html#schematype_SchemaType-required).
    * - Validation is asynchronously recursive; when you call [Model#save](./api.html#model_Model-save), sub-document validation is executed as well. If an error occurs, your [Model#save](./api.html#model_Model-save) callback receives it
    * - Validation is customizable
@@ -117,36 +119,40 @@ describe('validation docs', function() {
    */
 
   it('The `unique` Option is Not a Validator', function(done) {
-    var uniqueUsernameSchema = new Schema({
+    const uniqueUsernameSchema = new Schema({
       username: {
         type: String,
         unique: true
       }
     });
-    var U1 = db.model('U1', uniqueUsernameSchema);
-    var U2 = db.model('U2', uniqueUsernameSchema);
+    const U1 = db.model('U1', uniqueUsernameSchema);
+    const U2 = db.model('U2', uniqueUsernameSchema);
     // acquit:ignore:start
-    var remaining = 3;
+    this.timeout(5000);
+    let remaining = 2;
     // acquit:ignore:end
 
-    var dup = [{ username: 'Val' }, { username: 'Val' }];
-    U1.create(dup, function(error) {
+    const dup = [{ username: 'Val' }, { username: 'Val' }];
+    U1.create(dup, err => {
       // Race condition! This may save successfully, depending on whether
       // MongoDB built the index before writing the 2 docs.
       // acquit:ignore:start
-      // Avoid ESLint errors
-      error;
+      err;
       --remaining || done();
       // acquit:ignore:end
     });
 
-    // Need to wait for the index to finish building before saving,
-    // otherwise unique constraints may be violated.
-    U2.once('index', function(error) {
-      assert.ifError(error);
-      U2.create(dup, function(error) {
+    // You need to wait for Mongoose to finish building the `unique`
+    // index before writing. You only need to build indexes once for
+    // a given collection, so you normally don't need to do this
+    // in production. But, if you drop the database between tests,
+    // you will need to use `init()` to wait for the index build to finish.
+    U2.init().
+      then(() => U2.create(dup)).
+      catch(error => {
         // Will error, but will *not* be a mongoose validation error, it will be
         // a duplicate key error.
+        // See: https://masteringjs.io/tutorials/mongoose/e11000-duplicate-key
         assert.ok(error);
         assert.ok(!error.errors);
         assert.ok(error.message.indexOf('duplicate key error') !== -1);
@@ -154,23 +160,6 @@ describe('validation docs', function() {
         --remaining || done();
         // acquit:ignore:end
       });
-    });
-
-    // There's also a promise-based equivalent to the event emitter API.
-    // The `init()` function is idempotent and returns a promise that
-    // will resolve once indexes are done building;
-    U2.init().then(function() {
-      U2.create(dup, function(error) {
-        // Will error, but will *not* be a mongoose validation error, it will be
-        // a duplicate key error.
-        assert.ok(error);
-        assert.ok(!error.errors);
-        assert.ok(error.message.indexOf('duplicate key error') !== -1);
-        // acquit:ignore:start
-        --remaining || done();
-        // acquit:ignore:end
-      });
-    });
   });
 
   /**
@@ -506,7 +495,7 @@ describe('validation docs', function() {
   });
 
   /**
-   * The other key difference that update validators only run on the paths
+   * The other key difference is that update validators only run on the paths
    * specified in the update. For instance, in the below example, because
    * 'name' is not specified in the update operation, update validation will
    * succeed.

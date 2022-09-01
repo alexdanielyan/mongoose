@@ -15,12 +15,12 @@ describe('SingleNestedPath', function() {
     describe('recursive nested discriminators', function() {
       it('allow multiple levels of data in the schema', function() {
         const singleEventSchema = new Schema({
-          message: String,
+          message: String
         }, { _id: false, discriminatorKey: 'kind' });
 
         const subEventSchema = new Schema({
           sub_events: [singleEventSchema]
-        }, {_id: false});
+        }, { _id: false });
 
         subEventSchema.path('sub_events').discriminator('SubEvent', subEventSchema);
 
@@ -35,12 +35,12 @@ describe('SingleNestedPath', function() {
 
       it('allow multiple levels of data in a document', function() {
         const singleEventSchema = new Schema({
-          message: String,
+          message: String
         }, { _id: false, discriminatorKey: 'kind' });
 
         const subEventSchema = new Schema({
           sub_events: [singleEventSchema]
-        }, {_id: false});
+        }, { _id: false });
 
         subEventSchema.path('sub_events').discriminator('SubEvent', subEventSchema);
 
@@ -61,10 +61,10 @@ describe('SingleNestedPath', function() {
                 sub_events: [{
                   kind: 'SubEvent',
                   message: 'level 5',
-                  sub_events: [],
-                }],
-              }],
-            }],
+                  sub_events: []
+                }]
+              }]
+            }]
           }]
         };
         const subEvent = SubEvent(multiLevel);
@@ -75,7 +75,7 @@ describe('SingleNestedPath', function() {
       it('allow multiple levels of data in the schema when the base schema has _id without auto', function() {
         const singleEventSchema = new Schema({
           _id: { type: Number, required: true },
-          message: String,
+          message: String
         }, { discriminatorKey: 'kind' });
 
         const subEventSchema = new Schema({
@@ -100,7 +100,7 @@ describe('SingleNestedPath', function() {
       it('allow multiple levels of data in a document when the base schema has _id without auto', function() {
         const singleEventSchema = new Schema({
           _id: { type: Number, required: true },
-          message: String,
+          message: String
         }, { discriminatorKey: 'kind' });
 
         const subEventSchema = new Schema({
@@ -131,10 +131,10 @@ describe('SingleNestedPath', function() {
                   _id: 1,
                   kind: 'SubEvent',
                   message: 'level 5',
-                  sub_events: [],
-                }],
-              }],
-            }],
+                  sub_events: []
+                }]
+              }]
+            }]
           }]
         };
         const subEvent = SubEvent(multiLevel);
@@ -142,5 +142,43 @@ describe('SingleNestedPath', function() {
         assert.deepStrictEqual(multiLevel, subEvent.toJSON());
       });
     });
+  });
+
+  it('copies over `requiredValidator` (gh-8819)', function() {
+    const authorSchema = new mongoose.Schema({
+      name: String,
+      pseudonym: String
+    });
+
+    const bookSchema = new mongoose.Schema({
+      author: {
+        type: authorSchema,
+        required: true
+      }
+    });
+
+    const clone = bookSchema.clone();
+    assert.ok(clone.path('author').requiredValidator);
+    assert.strictEqual(clone.path('author').requiredValidator,
+      clone.path('author').validators[0].validator);
+  });
+
+  it('supports `set()` (gh-8883)', function() {
+    mongoose.deleteModel(/Test/);
+    mongoose.Schema.Types.Embedded.set('required', true);
+
+    const Model = mongoose.model('Test', mongoose.Schema({
+      nested: mongoose.Schema({
+        test: String
+      })
+    }));
+
+    const doc = new Model({});
+
+    const err = doc.validateSync();
+    assert.ok(err);
+    assert.ok(err.errors['nested']);
+
+    mongoose.Schema.Types.Embedded.set('required', false);
   });
 });

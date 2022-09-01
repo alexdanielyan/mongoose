@@ -5,6 +5,10 @@ append style
   script(type="text/javascript" src="/docs/js/native.js")
 
 block content
+  <a class="edit-docs-link" href="#{editLink}" target="_blank">
+    <img src="/docs/images/pencil.svg" />
+  </a>
+
   :markdown
     ## Populate
 
@@ -20,7 +24,7 @@ block content
 
     MongoDB has the join-like [$lookup](https://docs.mongodb.com/manual/reference/operator/aggregation/lookup/) aggregation operator in versions >= 3.2. Mongoose has a more powerful alternative called `populate()`, which lets you reference documents in other collections.
 
-    Population is the process of automatically replacing the specified paths in the document with document(s) from other collection(s). We may populate a single document, multiple documents, plain object, multiple plain objects, or all objects returned from a query. Let's look at some examples.
+    Population is the process of automatically replacing the specified paths in the document with document(s) from other collection(s). We may populate a single document, multiple documents, a plain object, multiple plain objects, or all objects returned from a query. Let's look at some examples.
 
     ```javascript
     const mongoose = require('mongoose');
@@ -95,7 +99,7 @@ block content
 
       story1.save(function (err) {
         if (err) return handleError(err);
-        // thats it!
+        // that's it!
       });
     });
     ```
@@ -252,7 +256,7 @@ block content
 
     ```javascript
     Story.
-      find(...).
+      find().
       populate({
         path: 'fans',
         match: { age: { $gte: 21 } },
@@ -261,6 +265,35 @@ block content
       }).
       exec();
     ```
+
+    The `match` option doesn't filter out `Story` documents. If there are no documents that satisfy `match`,
+    you'll get a `Story` document with an empty `fans` array.
+
+    For example, suppose you `populate()` a story's `author` and the `author` doesn't satisfy `match`. Then
+    the story's `author` will be `null`.
+
+    ```javascript
+    const story = await Story.
+      findOne({ title: 'Casino Royale' }).
+      populate({ path: 'author', name: { $ne: 'Ian Fleming' } }).
+      exec();
+    story.author; // `null`
+    ```
+
+    In general, there is no way to make `populate()` filter stories based on properties of the story's `author`.
+    For example, the below query won't return any results, even though `author` is populated.
+
+    ```javascript
+    const story = await Story.
+      findOne({ 'author.name': 'Ian Fleming' }).
+      populate('author').
+      exec();
+    story; // null
+    ```
+
+    If you want to filter stories by their author's name, you should use [denormalization](https://www.mongodb.com/blog/post/6-rules-of-thumb-for-mongodb-schema-design-part-3).
+
+    <h3 id="limit-vs-perDocumentLimit"><a href="#limit-vs-perDocumentLimit">limit vs. perDocumentLimit</a></h3>
 
     Populate does support a `limit` option, however, it currently
     does **not** limit on a per-document basis. For example, suppose
@@ -357,17 +390,40 @@ block content
 
     <h3 id="populate_an_existing_mongoose_document"><a href="#populate_an_existing_mongoose_document">Populating an existing document</a></h3>
 
-    If we have an existing mongoose document and want to populate some of its
-    paths, **mongoose >= 3.6** supports the
-    [document#populate()](./api.html#document_Document-populate) method.
+    If you have an existing mongoose document and want to populate some of its
+    paths, you can use the
+    [Document#populate()](./api.html#document_Document-populate) method.
+    Just make sure you call [`Document#execPopulate()`](/docs/api/document.html#document_Document-execPopulate)
+    to execute the `populate()`.
+
+    ```javascript
+    const person = await Person.findOne({ name: 'Ian Fleming' });
+    
+    person.populated('stories'); // null
+
+    // Call the `populate()` method on a document to populate a path.
+    // Need to call `execPopulate()` to actually execute the `populate()`.
+    await person.populate('stories').execPopulate();
+
+    person.populated('stories'); // Array of ObjectIds
+    person.stories[0].name; // 'Casino Royale'
+    ```
+
+    The `Document#populate()` method supports chaining, so you can chain
+    multiple `populate()` calls together.
+
+    ```javascript
+    await person.populate('stories').populate('fans').execPopulate();
+    person.populated('fans'); // Array of ObjectIds
+    ```
 
     <h3 id="populate_multiple_documents"><a href="#populate_multiple_documents">Populating multiple existing documents</a></h3>
 
     If we have one or many mongoose documents or even plain objects
     (_like [mapReduce](./api.html#model_Model.mapReduce) output_), we may
     populate them using the [Model.populate()](./api.html#model_Model.populate)
-    method available in **mongoose >= 3.6**. This is what `document#populate()`
-    and `query#populate()` use to populate documents.
+    method. This is what `Document#populate()`
+    and `Query#populate()` use to populate documents.
 
     <h3 id="deep-populate"><a href="#deep-populate">Populating across multiple levels</a></h3>
 
@@ -573,6 +629,36 @@ block content
      */
     Band.find({}).populate('members').exec(function(error, bands) {
       /* `bands.members` is now an array of instances of `Person` */
+    });
+    ```
+
+    You can also use [the populate `match` option](http://thecodebarbarian.com/mongoose-5-5-static-hooks-and-populate-match-functions.html#populate-match-function)
+    to add an additional filter to the `populate()` query. This is useful
+    if you need to split up `populate()` data:
+
+    ```javascript
+    const PersonSchema = new Schema({
+      name: String,
+      band: String,
+      isActive: Boolean
+    });
+
+    const BandSchema = new Schema({
+      name: String
+    });
+    BandSchema.virtual('activeMembers', {
+      ref: 'Person',
+      localField: 'name',
+      foreignField: 'band',
+      justOne: false,
+      match: { isActive: true }
+    });
+    BandSchema.virtual('formerMembers', {
+      ref: 'Person',
+      localField: 'name',
+      foreignField: 'band',
+      justOne: false,
+      match: { isActive: false }
     });
     ```
 

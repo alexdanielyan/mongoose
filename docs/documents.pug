@@ -5,6 +5,10 @@ append style
   script(type="text/javascript" src="/docs/js/native.js")
 
 block content
+  <a class="edit-docs-link" href="#{editLink}" target="_blank">
+    <img src="/docs/images/pencil.svg" />
+  </a>
+
   :markdown
     ## Documents
 
@@ -18,7 +22,7 @@ block content
       <a href="#native_link#"><span class="sponsor">Sponsor</span> #native_company# — #native_desc#</a>
     </div>
 
-    Mongoose [documents](./api.html#document-js) represent a one-to-one mapping
+    Mongoose [documents](./api/document.html) represent a one-to-one mapping
     to documents as stored in MongoDB. Each document is an instance of its
     [Model](./models.html).
 
@@ -71,7 +75,7 @@ block content
     ```javascript
     doc.name = 'foo';
 
-    // Mongoose sends a `updateOne({ _id: doc._id }, { $set: { name: 'foo' } })`
+    // Mongoose sends an `updateOne({ _id: doc._id }, { $set: { name: 'foo' } })`
     // to MongoDB.
     await doc.save();
     ```
@@ -108,7 +112,7 @@ block content
 
     ### Validating
 
-    Documents are casted validated before they are saved. Mongoose first casts
+    Documents are casted and validated before they are saved. Mongoose first casts
     values to the specified type and then validates them. Internally, Mongoose
     calls the document's [`validate()` method](api.html#document_Document-validate)
     before saving.

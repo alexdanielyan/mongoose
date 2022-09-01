@@ -9,7 +9,6 @@ const start = require('./common');
 const Buffer = require('safe-buffer').Buffer;
 const assert = require('assert');
 const mongoose = require('./common').mongoose;
-const random = require('../lib/utils').random;
 
 const MongooseBuffer = mongoose.Types.Buffer;
 const Schema = mongoose.Schema;
@@ -36,14 +35,14 @@ describe('types.buffer', function() {
 
     subBuf = new Schema({
       name: String,
-      buf: {type: Buffer, validate: [valid, 'valid failed'], required: true}
+      buf: { type: Buffer, validate: [valid, 'valid failed'], required: true }
     });
 
     UserBuffer = new Schema({
       name: String,
       serial: Buffer,
       array: [Buffer],
-      required: {type: Buffer, required: true, index: true},
+      required: { type: Buffer, required: true, index: true },
       sub: [subBuf]
     });
   });
@@ -51,6 +50,10 @@ describe('types.buffer', function() {
   after(function(done) {
     db.close(done);
   });
+
+  beforeEach(() => db.deleteModel(/.*/));
+  afterEach(() => require('./util').clearTestData(db));
+  afterEach(() => require('./util').stopRemainingOps(db));
 
   it('test that a mongoose buffer behaves and quacks like a buffer', function(done) {
     let a = new MongooseBuffer;
@@ -72,7 +75,7 @@ describe('types.buffer', function() {
   });
 
   it('buffer validation', function(done) {
-    const User = db.model('UserBuffer', UserBuffer, 'usersbuffer_' + random());
+    const User = db.model('Test', UserBuffer);
 
     User.on('index', function() {
       const t = new User({
@@ -80,25 +83,25 @@ describe('types.buffer', function() {
       });
 
       t.validate(function(err) {
-        assert.ok(err.message.indexOf('UserBuffer validation failed') === 0, err.message);
+        assert.ok(err.message.indexOf('Test validation failed') === 0, err.message);
         assert.equal(err.errors.required.kind, 'required');
-        t.required = {x: [20]};
+        t.required = { x: [20] };
         t.save(function(err) {
           assert.ok(err);
           assert.equal(err.name, 'ValidationError');
           assert.equal(err.errors.required.name, 'CastError');
           assert.equal(err.errors.required.kind, 'Buffer');
           assert.equal(err.errors.required.message, 'Cast to Buffer failed for value "{ x: [ 20 ] }" at path "required"');
-          assert.deepEqual(err.errors.required.value, {x: [20]});
+          assert.deepEqual(err.errors.required.value, { x: [20] });
           t.required = Buffer.from('hello');
 
-          t.sub.push({name: 'Friday Friday'});
+          t.sub.push({ name: 'Friday Friday' });
           t.save(function(err) {
-            assert.ok(err.message.indexOf('UserBuffer validation failed') === 0, err.message);
+            assert.ok(err.message.indexOf('Test validation failed') === 0, err.message);
             assert.equal(err.errors['sub.0.buf'].kind, 'required');
             t.sub[0].buf = Buffer.from('well well');
             t.save(function(err) {
-              assert.ok(err.message.indexOf('UserBuffer validation failed') === 0, err.message);
+              assert.ok(err.message.indexOf('Test validation failed') === 0, err.message);
               assert.equal(err.errors['sub.0.buf'].kind, 'user defined');
               assert.equal(err.errors['sub.0.buf'].message, 'valid failed');
 
@@ -115,7 +118,7 @@ describe('types.buffer', function() {
   });
 
   it('buffer storage', function(done) {
-    const User = db.model('UserBuffer', UserBuffer, 'usersbuffer_' + random());
+    const User = db.model('Test', UserBuffer);
 
     User.on('index', function() {
       const sampleBuffer = Buffer.from([123, 223, 23, 42, 11]);
@@ -144,7 +147,7 @@ describe('types.buffer', function() {
   });
 
   it('test write markModified', function(done) {
-    const User = db.model('UserBuffer', UserBuffer, 'usersbuffer_' + random());
+    const User = db.model('Test', UserBuffer);
 
     User.on('index', function() {
       const sampleBuffer = Buffer.from([123, 223, 23, 42, 11]);
@@ -373,8 +376,8 @@ describe('types.buffer', function() {
   });
 
   it('can be set to null', function(done) {
-    const User = db.model('UserBuffer', UserBuffer, 'usersbuffer_' + random());
-    const user = new User({array: [null], required: Buffer.alloc(1)});
+    const User = db.model('Test', UserBuffer);
+    const user = new User({ array: [null], required: Buffer.alloc(1) });
     user.save(function(err, doc) {
       assert.ifError(err);
       User.findById(doc, function(err, doc) {
@@ -387,11 +390,11 @@ describe('types.buffer', function() {
   });
 
   it('can be updated to null', function(done) {
-    const User = db.model('UserBuffer', UserBuffer, 'usersbuffer_' + random());
-    const user = new User({array: [null], required: Buffer.alloc(1), serial: Buffer.alloc(1)});
+    const User = db.model('Test', UserBuffer);
+    const user = new User({ array: [null], required: Buffer.alloc(1), serial: Buffer.alloc(1) });
     user.save(function(err, doc) {
       assert.ifError(err);
-      User.findOneAndUpdate({_id: doc.id}, {serial: null}, {new: true}, function(err, doc) {
+      User.findOneAndUpdate({ _id: doc.id }, { serial: null }, { new: true }, function(err, doc) {
         assert.ifError(err);
         assert.equal(doc.serial, null);
         done();
@@ -412,27 +415,27 @@ describe('types.buffer', function() {
   describe('subtype', function() {
     let bufferSchema, B;
 
-    before(function(done) {
-      bufferSchema = new Schema({buf: Buffer});
-      B = db.model('1571', bufferSchema);
+    beforeEach(function(done) {
+      bufferSchema = new Schema({ buf: Buffer });
+      B = db.model('Test', bufferSchema);
       done();
     });
 
     it('default value', function(done) {
-      const b = new B({buf: Buffer.from('hi')});
+      const b = new B({ buf: Buffer.from('hi') });
       assert.strictEqual(0, b.buf._subtype);
       done();
     });
 
     it('method works', function(done) {
-      const b = new B({buf: Buffer.from('hi')});
+      const b = new B({ buf: Buffer.from('hi') });
       b.buf.subtype(128);
       assert.strictEqual(128, b.buf._subtype);
       done();
     });
 
     it('is stored', function(done) {
-      const b = new B({buf: Buffer.from('hi')});
+      const b = new B({ buf: Buffer.from('hi') });
       b.buf.subtype(128);
       b.save(function(err) {
         if (err) {
@@ -451,7 +454,7 @@ describe('types.buffer', function() {
     });
 
     it('changes are retained', function(done) {
-      const b = new B({buf: Buffer.from('hi')});
+      const b = new B({ buf: Buffer.from('hi') });
       b.buf.subtype(128);
       b.save(function(err) {
         if (err) {
@@ -484,49 +487,54 @@ describe('types.buffer', function() {
     });
 
     it('cast from number (gh-3764)', function(done) {
-      const schema = new Schema({buf: Buffer});
-      const MyModel = mongoose.model('gh3764', schema);
+      const schema = new Schema({ buf: Buffer });
+      mongoose.deleteModel(/Test/);
+      const MyModel = mongoose.model('Test', schema);
 
-      const doc = new MyModel({buf: 9001});
+      const doc = new MyModel({ buf: 9001 });
       assert.equal(doc.buf.length, 1);
       done();
     });
 
     it('cast from string', function(done) {
-      const schema = new Schema({buf: Buffer});
-      const MyModel = mongoose.model('bufferFromString', schema);
+      const schema = new Schema({ buf: Buffer });
+      mongoose.deleteModel(/Test/);
+      const MyModel = mongoose.model('Test', schema);
 
-      const doc = new MyModel({buf: 'hi'});
+      const doc = new MyModel({ buf: 'hi' });
       assert.ok(doc.buf instanceof Buffer);
       assert.equal(doc.buf.toString('utf8'), 'hi');
       done();
     });
 
     it('cast from array', function(done) {
-      const schema = new Schema({buf: Buffer});
-      const MyModel = mongoose.model('bufferFromArray', schema);
+      const schema = new Schema({ buf: Buffer });
+      mongoose.deleteModel(/Test/);
+      const MyModel = mongoose.model('Test', schema);
 
-      const doc = new MyModel({buf: [195, 188, 98, 101, 114]});
+      const doc = new MyModel({ buf: [195, 188, 98, 101, 114] });
       assert.ok(doc.buf instanceof Buffer);
       assert.equal(doc.buf.toString('utf8'), 'über');
       done();
     });
 
     it('cast from Binary', function(done) {
-      const schema = new Schema({buf: Buffer});
-      const MyModel = mongoose.model('bufferFromBinary', schema);
+      const schema = new Schema({ buf: Buffer });
+      mongoose.deleteModel(/Test/);
+      const MyModel = mongoose.model('Test', schema);
 
-      const doc = new MyModel({buf: new MongooseBuffer.Binary([228, 189, 160, 229, 165, 189], 0)});
+      const doc = new MyModel({ buf: new MongooseBuffer.Binary([228, 189, 160, 229, 165, 189], 0) });
       assert.ok(doc.buf instanceof Buffer);
       assert.equal(doc.buf.toString('utf8'), '你好');
       done();
     });
 
     it('cast from json (gh-6863)', function(done) {
-      const schema = new Schema({buf: Buffer});
-      const MyModel = mongoose.model('gh6863', schema);
+      const schema = new Schema({ buf: Buffer });
+      mongoose.deleteModel(/Test/);
+      const MyModel = mongoose.model('Test', schema);
 
-      const doc = new MyModel({buf: { type: 'Buffer', data: [103, 104, 45, 54, 56, 54, 51]}});
+      const doc = new MyModel({ buf: { type: 'Buffer', data: [103, 104, 45, 54, 56, 54, 51] } });
       assert.ok(doc.buf instanceof Buffer);
       assert.equal(doc.buf.toString('utf8'), 'gh-6863');
       done();

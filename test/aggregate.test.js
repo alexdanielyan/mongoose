@@ -18,17 +18,15 @@ const Schema = mongoose.Schema;
  * Test data
  */
 
-const EmployeeSchema = new Schema({
-  name: String,
-  sal: Number,
-  dept: String,
-  customers: [String],
-  reportsTo: String
-});
-
-mongoose.model('Employee', EmployeeSchema);
-
 function setupData(db, callback) {
+  const EmployeeSchema = new Schema({
+    name: String,
+    sal: Number,
+    dept: String,
+    customers: [String],
+    reportsTo: String
+  });
+
   let saved = 0;
   const emps = [
     { name: 'Alice', sal: 18000, dept: 'sales', customers: ['Eve', 'Fred'] },
@@ -36,15 +34,17 @@ function setupData(db, callback) {
     { name: 'Carol', sal: 14000, dept: 'r&d', reportsTo: 'Bob' },
     { name: 'Dave', sal: 14500, dept: 'r&d', reportsTo: 'Carol' }
   ];
-  const Employee = db.model('Employee');
+  const Employee = db.model('Employee', EmployeeSchema);
 
-  emps.forEach(function(data) {
-    const emp = new Employee(data);
+  Employee.deleteMany({}, function() {
+    emps.forEach(function(data) {
+      const emp = new Employee(data);
 
-    emp.save(function() {
-      if (++saved === emps.length) {
-        callback();
-      }
+      emp.save(function() {
+        if (++saved === emps.length) {
+          callback();
+        }
+      });
     });
   });
 }
@@ -92,8 +92,12 @@ describe('aggregate: ', function() {
     db.close(done);
   });
 
+  beforeEach(() => db.deleteModel(/.*/));
+  afterEach(() => require('./util').clearTestData(db));
+  afterEach(() => require('./util').stopRemainingOps(db));
+
   describe('append', function() {
-    it('(pipeline)', function(done) {
+    it('(pipeline)', function() {
       const aggregate = new Aggregate();
 
       assert.equal(aggregate.append({ $a: 1 }, { $b: 2 }, { $c: 3 }), aggregate);
@@ -101,11 +105,9 @@ describe('aggregate: ', function() {
 
       aggregate.append({ $d: 4 }, { $c: 5 });
       assert.deepEqual(aggregate._pipeline, [{ $a: 1 }, { $b: 2 }, { $c: 3 }, { $d: 4 }, { $c: 5 }]);
-
-      done();
     });
 
-    it('supports array as single argument', function(done) {
+    it('supports array as single argument', function() {
       const aggregate = new Aggregate();
 
       assert.equal(aggregate.append([{ $a: 1 }, { $b: 2 }, { $c: 3 }]), aggregate);
@@ -113,11 +115,9 @@ describe('aggregate: ', function() {
 
       aggregate.append([{ $d: 4 }, { $c: 5 }]);
       assert.deepEqual(aggregate._pipeline, [{ $a: 1 }, { $b: 2 }, { $c: 3 }, { $d: 4 }, { $c: 5 }]);
-
-      done();
     });
 
-    it('throws if non-operator parameter is passed', function(done) {
+    it('throws if non-operator parameter is passed', function() {
       const aggregate = new Aggregate();
       const regexp = /Arguments must be aggregate pipeline operators/;
 
@@ -136,33 +136,27 @@ describe('aggregate: ', function() {
       assert.throws(function() {
         aggregate.append([{ $a: 1 }, { a: 1 }]);
       }, regexp);
-
-      done();
     });
 
-    it('does not throw when 0 args passed', function(done) {
+    it('does not throw when 0 args passed', function() {
       const aggregate = new Aggregate();
 
       assert.doesNotThrow(function() {
         aggregate.append();
       });
-
-      done();
     });
 
-    it('does not throw when empty array is passed as single argument', function(done) {
+    it('does not throw when empty array is passed as single argument', function() {
       const aggregate = new Aggregate();
 
       assert.doesNotThrow(function() {
         aggregate.append([]);
       });
-
-      done();
     });
   });
 
   describe('project', function() {
-    it('(object)', function(done) {
+    it('(object)', function() {
       const aggregate = new Aggregate();
 
       assert.equal(aggregate.project({ a: 1, b: 1, c: 0 }), aggregate);
@@ -170,11 +164,9 @@ describe('aggregate: ', function() {
 
       aggregate.project({ b: 1 });
       assert.deepEqual(aggregate._pipeline, [{ $project: { a: 1, b: 1, c: 0 } }, { $project: { b: 1 } }]);
-
-      done();
     });
 
-    it('(string)', function(done) {
+    it('(string)', function() {
       const aggregate = new Aggregate();
 
       aggregate.project(' a b   -c  ');
@@ -182,31 +174,25 @@ describe('aggregate: ', function() {
 
       aggregate.project('b');
       assert.deepEqual(aggregate._pipeline, [{ $project: { a: 1, b: 1, c: 0 } }, { $project: { b: 1 } }]);
-
-      done();
     });
 
-    it('("a","b","c")', function(done) {
+    it('("a","b","c")', function() {
       assert.throws(function() {
         const aggregate = new Aggregate();
         aggregate.project('a', 'b', 'c');
       }, /Invalid project/);
-
-      done();
     });
 
-    it('["a","b","c"]', function(done) {
+    it('["a","b","c"]', function() {
       assert.throws(function() {
         const aggregate = new Aggregate();
         aggregate.project(['a', 'b', 'c']);
       }, /Invalid project/);
-
-      done();
     });
   });
 
   describe('group', function() {
-    it('works', function(done) {
+    it('works', function() {
       const aggregate = new Aggregate();
 
       assert.equal(aggregate.group({ a: 1, b: 2 }), aggregate);
@@ -214,13 +200,11 @@ describe('aggregate: ', function() {
 
       aggregate.group({ c: 3 });
       assert.deepEqual(aggregate._pipeline, [{ $group: { a: 1, b: 2 } }, { $group: { c: 3 } }]);
-
-      done();
     });
   });
 
   describe('skip', function() {
-    it('works', function(done) {
+    it('works', function() {
       const aggregate = new Aggregate();
 
       assert.equal(aggregate.skip(42), aggregate);
@@ -228,13 +212,11 @@ describe('aggregate: ', function() {
 
       aggregate.skip(42);
       assert.deepEqual(aggregate._pipeline, [{ $skip: 42 }, { $skip: 42 }]);
-
-      done();
     });
   });
 
   describe('limit', function() {
-    it('works', function(done) {
+    it('works', function() {
       const aggregate = new Aggregate();
 
       assert.equal(aggregate.limit(42), aggregate);
@@ -242,13 +224,11 @@ describe('aggregate: ', function() {
 
       aggregate.limit(42);
       assert.deepEqual(aggregate._pipeline, [{ $limit: 42 }, { $limit: 42 }]);
-
-      done();
     });
   });
 
   describe('unwind', function() {
-    it('("field")', function(done) {
+    it('("field")', function() {
       const aggregate = new Aggregate();
 
       assert.equal(aggregate.unwind('field'), aggregate);
@@ -261,13 +241,11 @@ describe('aggregate: ', function() {
         { $unwind: '$b' },
         { $unwind: '$c' }
       ]);
-
-      done();
     });
   });
 
   describe('match', function() {
-    it('works', function(done) {
+    it('works', function() {
       const aggregate = new Aggregate();
 
       assert.equal(aggregate.match({ a: 1 }), aggregate);
@@ -275,13 +253,11 @@ describe('aggregate: ', function() {
 
       aggregate.match({ b: 2 });
       assert.deepEqual(aggregate._pipeline, [{ $match: { a: 1 } }, { $match: { b: 2 } }]);
-
-      done();
     });
   });
 
   describe('sort', function() {
-    it('(object)', function(done) {
+    it('(object)', function() {
       const aggregate = new Aggregate();
 
       assert.equal(aggregate.sort({ a: 1, b: 'asc', c: 'descending' }), aggregate);
@@ -289,11 +265,9 @@ describe('aggregate: ', function() {
 
       aggregate.sort({ b: 'desc' });
       assert.deepEqual(aggregate._pipeline, [{ $sort: { a: 1, b: 1, c: -1 } }, { $sort: { b: -1 } }]);
-
-      done();
     });
 
-    it('(string)', function(done) {
+    it('(string)', function() {
       const aggregate = new Aggregate();
 
       aggregate.sort(' a b   -c  ');
@@ -301,31 +275,25 @@ describe('aggregate: ', function() {
 
       aggregate.sort('b');
       assert.deepEqual(aggregate._pipeline, [{ $sort: { a: 1, b: 1, c: -1 } }, { $sort: { b: 1 } }]);
-
-      done();
     });
 
-    it('("a","b","c")', function(done) {
+    it('("a","b","c")', function() {
       assert.throws(function() {
         const aggregate = new Aggregate();
         aggregate.sort('a', 'b', 'c');
       }, /Invalid sort/);
-
-      done();
     });
 
-    it('["a","b","c"]', function(done) {
+    it('["a","b","c"]', function() {
       assert.throws(function() {
         const aggregate = new Aggregate();
         aggregate.sort(['a', 'b', 'c']);
       }, /Invalid sort/);
-
-      done();
     });
   });
 
   describe('near', function() {
-    it('works', function(done) {
+    it('works', function() {
       const aggregate = new Aggregate();
 
       assert.equal(aggregate.near({ a: 1 }), aggregate);
@@ -333,11 +301,9 @@ describe('aggregate: ', function() {
 
       aggregate.near({ b: 2 });
       assert.deepEqual(aggregate._pipeline, [{ $geoNear: { a: 1 } }, { $geoNear: { b: 2 } }]);
-
-      done();
     });
 
-    it('works with discriminators (gh-3304)', function(done) {
+    it('works with discriminators (gh-3304)', function() {
       let aggregate = new Aggregate();
       const stub = {
         schema: {
@@ -364,13 +330,11 @@ describe('aggregate: ', function() {
       Aggregate._prepareDiscriminatorPipeline(aggregate);
       assert.deepEqual(aggregate._pipeline,
         [{ $geoNear: { b: 2, query: { x: 1, __t: 'subschema' } } }]);
-
-      done();
     });
   });
 
   describe('lookup', function() {
-    it('works', function(done) {
+    it('works', function() {
       const aggregate = new Aggregate();
       const obj = {
         from: 'users',
@@ -383,24 +347,22 @@ describe('aggregate: ', function() {
 
       assert.equal(aggregate._pipeline.length, 1);
       assert.deepEqual(aggregate._pipeline[0].$lookup, obj);
-      done();
     });
   });
 
   describe('sample', function() {
-    it('works', function(done) {
+    it('works', function() {
       const aggregate = new Aggregate();
 
       aggregate.sample(3);
 
       assert.equal(aggregate._pipeline.length, 1);
       assert.deepEqual(aggregate._pipeline[0].$sample, { size: 3 });
-      done();
     });
   });
 
   describe('model()', function() {
-    it('works', function(done) {
+    it('works', function() {
       const aggregate = new Aggregate();
       const model = { foo: 42 };
 
@@ -410,32 +372,26 @@ describe('aggregate: ', function() {
       assert.equal(aggregate.model(model), aggregate);
       assert.equal(aggregate._model, model);
       assert.equal(aggregate.model(), model);
-
-      done();
     });
   });
 
   describe('redact', function() {
     const pipelineResult = [{ $redact: { $cond: { if: { $eq: ['$level', 5] }, then: '$$PRUNE', else: '$$DESCEND' } } }];
-    it('works', function(done) {
+    it('works', function() {
       const aggregate = new Aggregate();
       aggregate.redact({
         $cond: {
-          if: { $eq: [ '$level', 5 ] },
+          if: { $eq: ['$level', 5] },
           then: '$$PRUNE',
           else: '$$DESCEND'
         }
       });
       assert.deepEqual(aggregate._pipeline, pipelineResult);
-
-      done();
     });
-    it('works with (condition, string, string)', function(done) {
+    it('works with (condition, string, string)', function() {
       const aggregate = new Aggregate();
       aggregate.redact({ $eq: ['$level', 5] }, '$$PRUNE', '$$DESCEND');
       assert.deepEqual(aggregate._pipeline, pipelineResult);
-
-      done();
     });
   });
 
@@ -445,7 +401,7 @@ describe('aggregate: ', function() {
     });
 
     describe('graphLookup', function() {
-      it('works', function(done) {
+      it('works', function() {
         const aggregate = new Aggregate();
         aggregate.graphLookup({
           startWith: '$test',
@@ -461,10 +417,9 @@ describe('aggregate: ', function() {
           connectFromField: 'testFromField',
           connectToField: '_id'
         });
-        done();
       });
 
-      it('automatically prepends $ to the startWith field', function(done) {
+      it('automatically prepends $ to the startWith field', function() {
         const aggregate = new Aggregate();
         aggregate.graphLookup({
           startWith: 'test'
@@ -473,36 +428,31 @@ describe('aggregate: ', function() {
         assert.deepEqual(aggregate._pipeline[0].$graphLookup, {
           startWith: '$test'
         });
-        done();
       });
 
-      it('Throws if no options are passed to graphLookup', function(done) {
+      it('Throws if no options are passed to graphLookup', function() {
         const aggregate = new Aggregate();
-        try {
+        assert.throws(function() {
           aggregate.graphLookup('invalid options');
-          done(new Error('Should have errored'));
-        } catch (error) {
-          assert.ok(error instanceof TypeError);
-          done();
-        }
+        },
+        TypeError);
       });
     });
 
     describe('addFields', function() {
-      it('(object)', function(done) {
+      it('(object)', function() {
         const aggregate = new Aggregate();
 
         assert.equal(aggregate.addFields({ a: 1, b: 1, c: 0 }), aggregate);
         assert.deepEqual(aggregate._pipeline, [{ $addFields: { a: 1, b: 1, c: 0 } }]);
 
-        aggregate.addFields({ d: {$add: ['$a','$b']} });
-        assert.deepEqual(aggregate._pipeline, [{ $addFields: { a: 1, b: 1, c: 0 } }, { $addFields: { d: {$add: ['$a','$b']} } }]);
-        done();
+        aggregate.addFields({ d: { $add: ['$a', '$b'] } });
+        assert.deepEqual(aggregate._pipeline, [{ $addFields: { a: 1, b: 1, c: 0 } }, { $addFields: { d: { $add: ['$a', '$b'] } } }]);
       });
     });
 
     describe('facet', function() {
-      it('works', function(done) {
+      it('works', function() {
         const aggregate = new Aggregate();
 
         aggregate.facet({
@@ -544,77 +494,67 @@ describe('aggregate: ', function() {
             }
           ]
         });
-        done();
       });
     });
 
     describe('replaceRoot', function() {
-      it('works with a string', function(done) {
+      it('works with a string', function() {
         const aggregate = new Aggregate();
 
         aggregate.replaceRoot('myNewRoot');
 
         assert.deepEqual(aggregate._pipeline,
-          [{ $replaceRoot: { newRoot: '$myNewRoot' }}]);
-        done();
+          [{ $replaceRoot: { newRoot: '$myNewRoot' } }]);
       });
-      it('works with an object (gh-6474)', function(done) {
+      it('works with an object (gh-6474)', function() {
         const aggregate = new Aggregate();
 
         aggregate.replaceRoot({ x: { $concat: ['$this', '$that'] } });
 
         assert.deepEqual(aggregate._pipeline,
-          [{ $replaceRoot: { newRoot: { x: { $concat: ['$this', '$that'] } } } } ]);
-        done();
+          [{ $replaceRoot: { newRoot: { x: { $concat: ['$this', '$that'] } } } }]);
       });
     });
 
     describe('count', function() {
-      it('works', function(done) {
+      it('works', function() {
         const aggregate = new Aggregate();
 
         aggregate.count('countResult');
 
         assert.deepEqual(aggregate._pipeline, [{ $count: 'countResult' }]);
-        done();
       });
     });
 
     describe('sortByCount', function() {
-      it('works with a string argument', function(done) {
+      it('works with a string argument', function() {
         const aggregate = new Aggregate();
 
         aggregate.sortByCount('countedField');
 
         assert.deepEqual(aggregate._pipeline, [{ $sortByCount: '$countedField' }]);
-        done();
       });
 
-      it('works with an object argument', function(done) {
+      it('works with an object argument', function() {
         const aggregate = new Aggregate();
 
         aggregate.sortByCount({ lname: '$employee.last' });
 
         assert.deepEqual(aggregate._pipeline,
-          [{ $sortByCount: { lname: '$employee.last' }}]);
-        done();
+          [{ $sortByCount: { lname: '$employee.last' } }]);
       });
 
-      it('throws if the argument is neither a string or object', function(done) {
+      it('throws if the argument is neither a string or object', function() {
         const aggregate = new Aggregate();
-        try {
+        assert.throws(function() {
           aggregate.sortByCount(1);
-          done(new Error('Should have errored'));
-        } catch (error) {
-          assert.ok(error instanceof TypeError);
-          done();
-        }
+        }, TypeError);
       });
     });
   });
 
   describe('exec', function() {
-    before(function(done) {
+    beforeEach(function(done) {
       setupData(db, done);
     });
 
@@ -695,7 +635,7 @@ describe('aggregate: ', function() {
         });
     });
 
-    it('unwind with obj', function(done) {
+    it('unwind with obj', function() {
       const aggregate = new Aggregate();
 
       const agg = aggregate.
@@ -705,10 +645,9 @@ describe('aggregate: ', function() {
       assert.equal(agg._pipeline.length, 1);
       assert.strictEqual(agg._pipeline[0].$unwind.preserveNullAndEmptyArrays,
         true);
-      done();
     });
 
-    it('unwind throws with bad arg', function(done) {
+    it('unwind throws with bad arg', function() {
       const aggregate = new Aggregate();
 
       let threw = false;
@@ -721,7 +660,6 @@ describe('aggregate: ', function() {
         threw = true;
       }
       assert.ok(threw);
-      done();
     });
 
     it('match', function(done) {
@@ -772,13 +710,13 @@ describe('aggregate: ', function() {
         aggregate.
           model(db.model('Employee')).
           graphLookup({
-            from: 'employees',
+            from: 'Employee',
             startWith: '$reportsTo',
             connectFromField: 'reportsTo',
             connectToField: 'name',
             as: 'employeeHierarchy'
           }).
-          sort({name: 1}).
+          sort({ name: 1 }).
           exec(function(err, docs) {
             if (err) {
               return done(err);
@@ -868,7 +806,7 @@ describe('aggregate: ', function() {
         });
     });
 
-    it('pipeline() (gh-5825)', function(done) {
+    it('pipeline() (gh-5825)', function() {
       const aggregate = new Aggregate();
 
       const pipeline = aggregate.
@@ -877,7 +815,6 @@ describe('aggregate: ', function() {
         pipeline();
 
       assert.deepEqual(pipeline, [{ $match: { sal: { $lt: 16000 } } }]);
-      done();
     });
 
     it('explain()', function(done) {
@@ -936,7 +873,7 @@ describe('aggregate: ', function() {
     });
 
     describe('error when not bound to a model', function() {
-      it('with callback', function(done) {
+      it('with callback', function() {
         const aggregate = new Aggregate();
 
         aggregate.skip(0);
@@ -948,8 +885,6 @@ describe('aggregate: ', function() {
           assert.equal(error.message, 'Aggregate not bound to any Model');
         }
         assert.ok(threw);
-
-        done();
       });
     });
 
@@ -969,7 +904,7 @@ describe('aggregate: ', function() {
         assert.equal(aggregate.options.readPreference.mode, pref);
         if (mongo26_or_greater) {
           aggregate.allowDiskUse(true);
-          aggregate.option({maxTimeMS: 1000});
+          aggregate.option({ maxTimeMS: 1000 });
           assert.equal(aggregate.options.allowDiskUse, true);
           assert.equal(aggregate.options.maxTimeMS, 1000);
         }
@@ -999,7 +934,7 @@ describe('aggregate: ', function() {
           next();
         });
 
-        const M = db.model('gh5251', s);
+        const M = db.model('Test', s);
 
         M.aggregate([{ $match: { name: 'test' } }], function(error, res) {
           assert.ifError(error);
@@ -1017,7 +952,7 @@ describe('aggregate: ', function() {
           next();
         });
 
-        const M = db.model('gh7606', s);
+        const M = db.model('Test', s);
 
         return co(function*() {
           yield M.create([{ name: 'alpha' }, { name: 'Zeta' }]);
@@ -1037,7 +972,7 @@ describe('aggregate: ', function() {
           next();
         });
 
-        const M = db.model('gh8017', s);
+        const M = db.model('Test', s);
 
         return co(function*() {
           yield M.create([{ name: 'alpha' }, { name: 'Zeta' }]);
@@ -1058,7 +993,7 @@ describe('aggregate: ', function() {
           next();
         });
 
-        const M = db.model('gh5251_post', s);
+        const M = db.model('Test', s);
 
         M.aggregate([{ $match: { name: 'test' } }], function(error, res) {
           assert.ifError(error);
@@ -1078,7 +1013,7 @@ describe('aggregate: ', function() {
           next();
         });
 
-        const M = db.model('gh5251_error_agg', s);
+        const M = db.model('Test', s);
 
         M.aggregate([{ $fakeStage: { name: 'test' } }], function(error, res) {
           assert.ok(error);
@@ -1103,7 +1038,7 @@ describe('aggregate: ', function() {
           next();
         });
 
-        const M = db.model('gh5251_error', s);
+        const M = db.model('Test', s);
 
         M.aggregate([{ $match: { name: 'test' } }], function(error, res) {
           assert.ok(error);
@@ -1129,7 +1064,7 @@ describe('aggregate: ', function() {
           next();
         });
 
-        const M = db.model('gh5251_cursor', s);
+        const M = db.model('Test', s);
 
         let numDocs = 0;
         M.
@@ -1161,7 +1096,7 @@ describe('aggregate: ', function() {
           next();
         });
 
-        const M = db.model('gh5887_cursor', s);
+        const M = db.model('Test', s);
 
         return M.aggregate([{ $match: { name: 'test' } }]).explain().
           then(() => {
@@ -1172,22 +1107,20 @@ describe('aggregate: ', function() {
       });
     });
 
-    it('readPref from schema (gh-5522)', function(done) {
+    it('readPref from schema (gh-5522)', function() {
       const schema = new Schema({ name: String }, { read: 'secondary' });
-      const M = db.model('gh5522', schema);
+      const M = db.model('Test', schema);
       const a = M.aggregate();
       assert.equal(a.options.readPreference.mode, 'secondary');
 
       a.read('secondaryPreferred');
 
       assert.equal(a.options.readPreference.mode, 'secondaryPreferred');
-
-      done();
     });
   });
 
   it('cursor (gh-3160)', function() {
-    const MyModel = db.model('gh3160', { name: String });
+    const MyModel = db.model('Test', { name: String });
 
     return co(function * () {
       yield MyModel.create({ name: 'test' });
@@ -1203,7 +1136,7 @@ describe('aggregate: ', function() {
   });
 
   it('catch() (gh-7267)', function() {
-    const MyModel = db.model('gh7267', {});
+    const MyModel = db.model('Test', {});
 
     return co(function * () {
       const err = yield MyModel.aggregate([{ $group: { foo: 'bar' } }]).
@@ -1216,7 +1149,7 @@ describe('aggregate: ', function() {
   it('cursor() without options (gh-3855)', function(done) {
     const db = start();
 
-    const MyModel = db.model('gh3855', { name: String });
+    const MyModel = db.model('Test', { name: String });
 
     db.on('open', function() {
       const cursor = MyModel.
@@ -1228,20 +1161,18 @@ describe('aggregate: ', function() {
     });
   });
 
-  it('cursor() with useMongooseAggCursor (gh-5145)', function(done) {
-    const MyModel = db.model('gh5145', { name: String });
+  it('cursor() with useMongooseAggCursor (gh-5145)', function() {
+    const MyModel = db.model('Test', { name: String });
 
     const cursor = MyModel.
       aggregate([{ $match: { name: 'test' } }]).
       cursor({ useMongooseAggCursor: true }).
       exec();
     assert.ok(cursor instanceof require('stream').Readable);
-
-    done();
   });
 
   it('cursor() with useMongooseAggCursor works (gh-5145) (gh-5394)', function(done) {
-    const MyModel = db.model('gh5394', { name: String });
+    const MyModel = db.model('Test', { name: String });
 
     MyModel.create({ name: 'test' }, function(error) {
       assert.ifError(error);
@@ -1263,7 +1194,7 @@ describe('aggregate: ', function() {
   });
 
   it('cursor() eachAsync (gh-4300)', function(done) {
-    const MyModel = db.model('gh4300', { name: String });
+    const MyModel = db.model('Test', { name: String });
 
     let cur = 0;
     const expectedNames = ['Axl', 'Slash'];
@@ -1292,7 +1223,7 @@ describe('aggregate: ', function() {
   });
 
   it('cursor() eachAsync with options (parallel)', function(done) {
-    const MyModel = db.model('gh-6168', { name: String });
+    const MyModel = db.model('Test', { name: String });
 
     const names = [];
     const startedAt = [];
@@ -1325,7 +1256,7 @@ describe('aggregate: ', function() {
   });
 
   it('ability to add noCursorTimeout option (gh-4241)', function(done) {
-    const MyModel = db.model('gh4241', {
+    const MyModel = db.model('Test', {
       name: String
     });
 
@@ -1342,7 +1273,7 @@ describe('aggregate: ', function() {
   });
 
   it('query by document (gh-4866)', function(done) {
-    const MyModel = db.model('gh4866', {
+    const MyModel = db.model('Test', {
       name: String
     });
 
@@ -1357,7 +1288,7 @@ describe('aggregate: ', function() {
   it('sort by text score (gh-5258)', function(done) {
     const mySchema = new Schema({ test: String });
     mySchema.index({ test: 'text' });
-    const M = db.model('gh5258', mySchema);
+    const M = db.model('Test', mySchema);
 
     M.on('index', function(error) {
       assert.ifError(error);
@@ -1386,7 +1317,7 @@ describe('aggregate: ', function() {
     it('adds hint option', function(done) {
       const mySchema = new Schema({ name: String, qty: Number });
       mySchema.index({ qty: -1, name: -1 });
-      const M = db.model('gh6251', mySchema);
+      const M = db.model('Test', mySchema);
       M.on('index', function(error) {
         assert.ifError(error);
         const docs = [

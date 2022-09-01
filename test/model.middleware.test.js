@@ -23,6 +23,10 @@ describe('model middleware', function() {
     db.close(done);
   });
 
+  beforeEach(() => db.deleteModel(/.*/));
+  afterEach(() => require('./util').clearTestData(db));
+  afterEach(() => require('./util').stopRemainingOps(db));
+
   it('post save', function(done) {
     const schema = new Schema({
       title: String
@@ -51,9 +55,9 @@ describe('model middleware', function() {
       next();
     });
 
-    const TestMiddleware = db.model('TestPostSaveMiddleware', schema);
+    const TestMiddleware = db.model('Test', schema);
 
-    const test = new TestMiddleware({title: 'Little Green Running Hood'});
+    const test = new TestMiddleware({ title: 'Little Green Running Hood' });
 
     test.save(function(err) {
       assert.ifError(err);
@@ -72,7 +76,7 @@ describe('model middleware', function() {
       throw new Error('woops!');
     });
 
-    const TestMiddleware = db.model('gh3483_post', schema);
+    const TestMiddleware = db.model('Test', schema);
 
     const test = new TestMiddleware({ title: 'Test' });
 
@@ -98,7 +102,7 @@ describe('model middleware', function() {
       });
     });
 
-    const TestMiddleware = db.model('gh3779_pre', schema);
+    const TestMiddleware = db.model('Test', schema);
 
     const test = new TestMiddleware({ title: 'Test' });
 
@@ -123,7 +127,7 @@ describe('model middleware', function() {
       });
     });
 
-    const TestMiddleware = db.model('gh3779_post', schema);
+    const TestMiddleware = db.model('Test', schema);
 
     const test = new TestMiddleware({ title: 'Test' });
 
@@ -150,7 +154,7 @@ describe('model middleware', function() {
       next();
     });
 
-    const Book = db.model('gh2462', schema);
+    const Book = db.model('Test', schema);
 
     Book.create({}, function() {
       assert.equal(count, 2);
@@ -217,7 +221,7 @@ describe('model middleware', function() {
         doc.loadedAt = now;
       });
 
-      const Test = db.model('TestPostInitMiddleware', schema);
+      const Test = db.model('Test', schema);
 
       return Test.create({ title: 'Casino Royale' }).
         then(doc => Test.findById(doc)).
@@ -235,7 +239,7 @@ describe('model middleware', function() {
       schema.pre('init', () => Promise.reject(swallowedError));
       schema.post('init', () => { throw Error('will show'); });
 
-      const Test = db.model('PostInitBook', schema);
+      const Test = db.model('Test', schema);
 
       return Test.create({ title: 'Casino Royale' }).
         then(doc => Test.findById(doc)).
@@ -269,13 +273,13 @@ describe('model middleware', function() {
       next();
     });
 
-    const Parent = db.model('gh-1829', parentSchema, 'gh-1829');
+    const Parent = db.model('Parent', parentSchema);
 
     const parent = new Parent({
       name: 'Han',
       children: [
-        {name: 'Jaina'},
-        {name: 'Jacen'}
+        { name: 'Jaina' },
+        { name: 'Jacen' }
       ]
     });
 
@@ -308,7 +312,7 @@ describe('model middleware', function() {
       throw new Error('woops!');
     });
 
-    const TestMiddleware = db.model('gh3483_pre', schema);
+    const TestMiddleware = db.model('Test', schema);
 
     const test = new TestMiddleware({ title: 'Test' });
 
@@ -337,7 +341,7 @@ describe('model middleware', function() {
       next();
     });
 
-    const TestMiddleware = db.model('gh3483_pre_2', schema);
+    const TestMiddleware = db.model('Test', schema);
 
     const test = new TestMiddleware({ title: 'Test' });
 
@@ -378,9 +382,9 @@ describe('model middleware', function() {
       ++postRemove;
     });
 
-    const Test = db.model('TestPostValidateMiddleware', schema);
+    const Test = db.model('Test', schema);
 
-    const test = new Test({title: 'banana'});
+    const test = new Test({ title: 'banana' });
 
     test.save(function(err) {
       assert.ifError(err);
@@ -420,7 +424,7 @@ describe('model middleware', function() {
       assert.equal(docs[0].name, 'foo');
     });
 
-    const Model = db.model('gh5982', schema);
+    const Model = db.model('Test', schema);
 
     return co(function*() {
       yield Model.create({ name: 'foo' });
@@ -453,7 +457,7 @@ describe('model middleware', function() {
       ++postCalled;
     });
 
-    const Model = db.model('gh7538', schema);
+    const Model = db.model('Test', schema);
 
     return co(function*() {
       yield Model.create({ name: 'foo' });

@@ -28,6 +28,10 @@ describe('Map', function() {
     db.close(done);
   });
 
+  beforeEach(() => db.deleteModel(/.*/));
+  afterEach(() => require('./util').clearTestData(db));
+  afterEach(() => require('./util').stopRemainingOps(db));
+
   it('validation', function() {
     const nestedValidateCalls = [];
     const validateCalls = [];
@@ -131,7 +135,7 @@ describe('Map', function() {
 
       person.fact.delete('killer');
 
-      assert.deepStrictEqual(person.$__delta()[1], { '$unset': { 'fact.killer': 1 } });
+      assert.deepStrictEqual(person.$__delta()[1], { $unset: { 'fact.killer': 1 } });
       assert.deepStrictEqual(Array.from(person.fact.keys()).sort(), ['cool', 'girl']);
       assert.strictEqual(person.fact.get('killer'), undefined);
 
@@ -287,15 +291,15 @@ describe('Map', function() {
           type: Map,
           of: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'MapPopulateTest'
+            ref: 'Test'
           }
         }
       });
 
       const KeySchema = new mongoose.Schema({ key: String });
 
-      const User = db.model('MapPopulateTest_0', UserSchema);
-      const Key = db.model('MapPopulateTest', KeySchema);
+      const User = db.model('User', UserSchema);
+      const Key = db.model('Test', KeySchema);
 
       return co(function*() {
         const key = yield Key.create({ key: 'abc123' });
@@ -322,15 +326,15 @@ describe('Map', function() {
           type: Map,
           of: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'MapPopulateWildcardTest'
+            ref: 'Test'
           }
         }
       });
 
       const KeySchema = new mongoose.Schema({ key: String });
 
-      const User = db.model('MapPopulateWildcardTest_0', UserSchema);
-      const Key = db.model('MapPopulateWildcardTest', KeySchema);
+      const User = db.model('User', UserSchema);
+      const Key = db.model('Test', KeySchema);
 
       return co(function*() {
         const key = yield Key.create({ key: 'abc123' });
@@ -351,15 +355,15 @@ describe('Map', function() {
           type: Map,
           of: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'MapPopulateMapDocTest'
+            ref: 'Test'
           }
         }
       });
 
       const KeySchema = new mongoose.Schema({ key: String });
 
-      const User = db.model('MapPopulateMapDocTest_0', UserSchema);
-      const Key = db.model('MapPopulateMapDocTest', KeySchema);
+      const User = db.model('User', UserSchema);
+      const Key = db.model('Test', KeySchema);
 
       return co(function*() {
         const key = yield Key.create({ key: 'abc123' });
@@ -382,8 +386,8 @@ describe('Map', function() {
 
       const KeySchema = new mongoose.Schema({ key: String });
 
-      const User = db.model('gh6460_User', UserSchema);
-      const Key = db.model('gh6460_Key', KeySchema);
+      const User = db.model('User', UserSchema);
+      const Key = db.model('Test', KeySchema);
 
       return co(function*() {
         const key = yield Key.create({ key: 'abc123' });
@@ -401,17 +405,17 @@ describe('Map', function() {
     });
 
     it('handles setting populated path to doc and then saving (gh-7745)', function() {
-      const Scene = db.model('gh7745_Scene', new mongoose.Schema({
+      const Scene = db.model('Test', new mongoose.Schema({
         name: String
       }));
 
-      const Event = db.model('gh7745_Event', new mongoose.Schema({
+      const Event = db.model('Event', new mongoose.Schema({
         scenes: {
           type: Map,
           default: {},
           of: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'gh7745_Scene'
+            ref: 'Test'
           }
         }
       }));
@@ -437,9 +441,9 @@ describe('Map', function() {
       n: Number
     });
 
-    const Test = db.model('MapDiscrimTest', TestSchema);
+    const Test = db.model('Test', TestSchema);
 
-    const Disc = Test.discriminator('MapDiscrimTest_0', new mongoose.Schema({
+    const Disc = Test.discriminator('D', new mongoose.Schema({
       m: {
         type: Map,
         of: Number
@@ -478,7 +482,7 @@ describe('Map', function() {
       }
     }, { _id: false, id: false }));
 
-    const Department = db.model('MapEmbeddedDiscrimTest', DepartmentSchema);
+    const Department = db.model('Test', DepartmentSchema);
 
     return co(function*() {
       const dept = new Department({
@@ -519,7 +523,7 @@ describe('Map', function() {
       }
     });
 
-    const Test = db.model('gh6478', schema);
+    const Test = db.model('Test', schema);
     const test = new Test({
       str: {
         testing: '123'
@@ -544,11 +548,11 @@ describe('Map', function() {
   it('updating map doesnt crash (gh-6750)', function() {
     return co(function*() {
       const Schema = mongoose.Schema;
-      const User = db.model('gh6750_User', {
+      const User = db.model('User', {
         maps: { type: Map, of: String, default: {} }
       });
 
-      const Post = db.model('gh6750_Post', {
+      const Post = db.model('BlogPost', {
         user: { type: Schema.Types.ObjectId, ref: 'User' }
       });
 
@@ -585,7 +589,7 @@ describe('Map', function() {
         }
       });
 
-      const Test = db.model('gh6938', schema);
+      const Test = db.model('Test', schema);
       const test = new Test({ widgets: { one: { x: 'a' } } });
       test.widgets.set('two', { x: 'b' });
       test.widgets.set('three', { x: 'c', child: { y: 2018 } });
@@ -596,7 +600,7 @@ describe('Map', function() {
   });
 
   it('array of mixed maps (gh-6995)', function() {
-    const Model = db.model('gh6995', new Schema({ arr: [Map] }));
+    const Model = db.model('Test', new Schema({ arr: [Map] }));
 
     return Model.create({ arr: [{ a: 1 }] }).
       then(doc => {
@@ -626,7 +630,7 @@ describe('Map', function() {
       }
     });
 
-    const Parent = db.model('gh7272', ParentSchema);
+    const Parent = db.model('Parent', ParentSchema);
 
     return co(function*() {
       yield Parent.create({ children: { luke: { age: 30 } } });
@@ -650,12 +654,12 @@ describe('Map', function() {
       }
     });
 
-    const Parent = db.model('gh7321', parentSchema);
+    const Parent = db.model('Parent', parentSchema);
 
     return co(function*() {
       const first = yield Parent.create({
         children: {
-          'one': {name: 'foo'}
+          one: { name: 'foo' }
         }
       });
 
@@ -680,7 +684,7 @@ describe('Map', function() {
       }
     });
 
-    const GoodsInfo = db.model('gh7630', schema);
+    const GoodsInfo = db.model('Test', schema);
 
     let goodsInfo = new GoodsInfo();
     goodsInfo.describe = new Map();
@@ -711,7 +715,7 @@ describe('Map', function() {
         }
       }
     });
-    const Model = db.model('gh7447', schema);
+    const Model = db.model('Test', schema);
 
     const doc = new Model({ myMap: { foo: 'bar' } });
     assert.equal(calls.length, 0);
@@ -734,7 +738,7 @@ describe('Map', function() {
         }
       }
     });
-    const Model = db.model('gh7859', schema);
+    const Model = db.model('Test', schema);
 
     const doc = new Model({ myMap: { foo: {} } });
 
@@ -752,7 +756,7 @@ describe('Map', function() {
         of: childSchema
       }
     });
-    const Model = db.model('gh8357', schema.clone());
+    const Model = db.model('Test', schema.clone());
 
     const doc = new Model({ myMap: { foo: { name: 'bar' } } });
 
@@ -771,11 +775,127 @@ describe('Map', function() {
         }
       }
     });
-    const Model = db.model('gh8424', schema);
+    const Model = db.model('Test', schema);
 
     const doc = new Model({ myMap: { foo: { name: 'bar' } } });
 
     assert.equal(doc.myMap.get('foo').name, 'bar');
     assert.ok(!doc.myMap.get('foo')._id);
+  });
+
+  it('avoids marking path as modified if setting to same value (gh-8652)', function() {
+    const childSchema = mongoose.Schema({ name: String }, { _id: false });
+    const schema = mongoose.Schema({
+      numMap: {
+        type: Map,
+        of: Number
+      },
+      docMap: {
+        type: Map,
+        of: childSchema
+      }
+    });
+    const Model = db.model('Test', schema);
+
+    return co(function*() {
+      yield Model.create({
+        numMap: {
+          answer: 42,
+          powerLevel: 9001
+        },
+        docMap: {
+          captain: { name: 'Jean-Luc Picard' },
+          firstOfficer: { name: 'Will Riker' }
+        }
+      });
+      const doc = yield Model.findOne();
+
+      doc.numMap.set('answer', 42);
+      doc.numMap.set('powerLevel', 9001);
+      doc.docMap.set('captain', { name: 'Jean-Luc Picard' });
+      doc.docMap.set('firstOfficer', { name: 'Will Riker' });
+
+      assert.deepEqual(doc.modifiedPaths(), []);
+    });
+  });
+
+  it('handles setting map value to spread document (gh-8652)', function() {
+    const childSchema = mongoose.Schema({ name: String }, { _id: false });
+    const schema = mongoose.Schema({
+      docMap: {
+        type: Map,
+        of: childSchema
+      }
+    });
+    const Model = db.model('Test', schema);
+
+    return co(function*() {
+      yield Model.create({
+        docMap: {
+          captain: { name: 'Jean-Luc Picard' },
+          firstOfficer: { name: 'Will Riker' }
+        }
+      });
+      const doc = yield Model.findOne();
+
+      doc.docMap.set('captain', Object.assign({}, doc.docMap.get('firstOfficer')));
+      yield doc.save();
+
+      const fromDb = yield Model.findOne();
+      assert.equal(fromDb.docMap.get('firstOfficer').name, 'Will Riker');
+    });
+  });
+
+  it('runs getters on map values (gh-8730)', function() {
+    const schema = mongoose.Schema({
+      name: String,
+      books: {
+        type: Map,
+        of: {
+          type: String,
+          get: function(v) { return `${v}, by ${this.name}`; }
+        }
+      }
+    });
+    const Model = db.model('Test', schema);
+
+    const doc = new Model({
+      name: 'Ian Fleming',
+      books: {
+        'casino-royale': 'Casino Royale'
+      }
+    });
+
+    assert.equal(doc.books.get('casino-royale'), 'Casino Royale, by Ian Fleming');
+    assert.equal(doc.get('books.casino-royale'), 'Casino Royale, by Ian Fleming');
+  });
+
+  it('handles validation of document array with maps and nested paths (gh-8767)', function() {
+    const subSchema = Schema({
+      _id: Number,
+      level2: {
+        type: Map,
+        of: Schema({
+          _id: Number,
+          level3: {
+            type: Map,
+            of: Number,
+            required: true
+          }
+        })
+      },
+      otherProps: { test: Number }
+    });
+    const mainSchema = Schema({ _id: Number, level1: [subSchema] });
+    const Test = db.model('Test', mainSchema);
+
+    const doc = new Test({
+      _id: 1,
+      level1: [
+        { _id: 10, level2: { answer: { _id: 101, level3: { value: 42 } } } },
+        { _id: 20, level2: { powerLevel: { _id: 201, level3: { value: 9001 } } } }
+      ]
+    });
+    return doc.validate();
   });
 });

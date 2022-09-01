@@ -19,6 +19,10 @@ describe('timestamps', function() {
     db.close(done);
   });
 
+  beforeEach(() => db.deleteModel(/.*/));
+  afterEach(() => require('./util').clearTestData(db));
+  afterEach(() => require('./util').stopRemainingOps(db));
+
   it('does not override timestamp params defined in schema (gh-4868)', function(done) {
     const startTime = Date.now();
     const schema = new mongoose.Schema({
@@ -32,11 +36,11 @@ describe('timestamps', function() {
       },
       name: String
     }, { timestamps: true });
-    const M = db.model('gh4868', schema);
+    const M = db.model('Test', schema);
 
-    M.create({ name: 'Test' }, function(error) {
+    M.create({ name: 'Test' }, function(error, doc) {
       assert.ifError(error);
-      M.findOne({}, function(error, doc) {
+      M.findOne({ _id: doc._id }, function(error, doc) {
         assert.ifError(error);
         assert.ok(!doc.createdAt);
         assert.ok(doc.updatedAt);
@@ -51,11 +55,11 @@ describe('timestamps', function() {
     const schema = new mongoose.Schema({
       name: String
     }, { timestamps: { createdAt: null, updatedAt: true } });
-    const M = db.model('gh5598', schema);
+    const M = db.model('Test', schema);
 
-    M.create({ name: 'Test' }, function(error) {
+    M.create({ name: 'Test' }, function(error, doc) {
       assert.ifError(error);
-      M.findOne({}, function(error, doc) {
+      M.findOne({ _id: doc._id }, function(error, doc) {
         assert.ifError(error);
         assert.ok(!doc.createdAt);
         assert.ok(doc.updatedAt);
@@ -73,11 +77,11 @@ describe('timestamps', function() {
     const parentSchema = new mongoose.Schema({
       child: schema
     });
-    const M = db.model('gh5598_0', parentSchema);
+    const M = db.model('Test', parentSchema);
 
-    M.create({ child: { name: 'test' } }, function(error) {
+    M.create({ child: { name: 'test' } }, function(error, doc) {
       assert.ifError(error);
-      M.findOne({}, function(error, doc) {
+      M.findOne({ _id: doc._id }, function(error, doc) {
         assert.ifError(error);
         assert.ok(!doc.child.createdAt);
         assert.ok(doc.child.updatedAt);
@@ -92,11 +96,11 @@ describe('timestamps', function() {
     const schema = new mongoose.Schema({
       name: String
     }, { timestamps: { createdAt: 'ts.c', updatedAt: 'ts.a' } });
-    const M = db.model('gh4503', schema);
+    const M = db.model('Test', schema);
 
-    M.create({ name: 'Test' }, function(error) {
+    M.create({ name: 'Test' }, function(error, doc) {
       assert.ifError(error);
-      M.findOne({}, function(error, doc) {
+      M.findOne({ _id: doc._id }, function(error, doc) {
         assert.ifError(error);
         assert.ok(doc.ts.c);
         assert.ok(doc.ts.c.valueOf() >= startTime);
@@ -122,11 +126,11 @@ describe('timestamps', function() {
       },
       name: String
     }, { timestamps: { createdAt: 'ts.createdAt', updatedAt: 'ts.updatedAt' } });
-    const M = db.model('gh4868_0', schema);
+    const M = db.model('Test', schema);
 
-    M.create({ name: 'Test' }, function(error) {
+    M.create({ name: 'Test' }, function(error, doc) {
       assert.ifError(error);
-      M.findOne({}, function(error, doc) {
+      M.findOne({ _id: doc._id }, function(error, doc) {
         assert.ifError(error);
         assert.ok(!doc.ts.createdAt);
         assert.ok(doc.ts.updatedAt);
@@ -152,11 +156,11 @@ describe('timestamps', function() {
       ts: tsSchema,
       name: String
     }, { timestamps: { createdAt: 'ts.createdAt', updatedAt: 'ts.updatedAt' } });
-    const M = db.model('gh4868_1', schema);
+    const M = db.model('Test', schema);
 
-    M.create({ name: 'Test' }, function(error) {
+    M.create({ name: 'Test' }, function(error, doc) {
       assert.ifError(error);
-      M.findOne({}, function(error, doc) {
+      M.findOne({ _id: doc._id }, function(error, doc) {
         assert.ifError(error);
         assert.ok(!doc.ts.createdAt);
         assert.ok(doc.ts.updatedAt);
@@ -170,7 +174,7 @@ describe('timestamps', function() {
     const subSchema = new Schema({}, { timestamps: false });
     const schema = new Schema({ sub: subSchema }, { timestamps: false });
 
-    const Test = db.model('gh7202', schema);
+    const Test = db.model('Test', schema);
     const test = new Test({ sub: {} });
 
     test.save((err, saved) => {
@@ -187,15 +191,15 @@ describe('timestamps', function() {
     const modelSchema = new Schema({
       createdAt: {
         type: Date,
-        get: (date) => date && date.valueOf() / 1000,
+        get: (date) => date && date.valueOf() / 1000
       },
       updatedAt: {
         type: Date,
-        get: (date) => date && date.valueOf() / 1000,
-      },
+        get: (date) => date && date.valueOf() / 1000
+      }
     }, { timestamps: true });
 
-    const Model = db.model('gh7496', modelSchema);
+    const Model = db.model('Test', modelSchema);
 
     const start = new Date();
     return Model.create({}).then(doc => {
@@ -212,10 +216,11 @@ describe('timestamps', function() {
       ++called;
       return mongoose.Model.updateOne.apply(this, arguments);
     };
-    const M = db.model('gh7698', schema);
+    const M = db.model('Test', schema);
 
     const startTime = Date.now();
-    return M.updateOne({}, { name: 'foo' }, { upsert: true }).
+    return M.deleteMany({}).
+      then(() => M.updateOne({}, { name: 'foo' }, { upsert: true })).
       then(() => assert.equal(called, 1)).
       then(() => M.findOne()).
       then(doc => assert.ok(doc.createdAt.valueOf() >= startTime));
@@ -225,8 +230,8 @@ describe('timestamps', function() {
     const childSchema = new mongoose.Schema({ name: String }, {
       timestamps: true
     });
-    const M1 = db.model('gh7712', new mongoose.Schema({ child: childSchema }));
-    const M2 = db.model('gh7712_1', new mongoose.Schema({
+    const M1 = db.model('Test', new mongoose.Schema({ child: childSchema }));
+    const M2 = db.model('Test1', new mongoose.Schema({
       children: [childSchema]
     }));
 
@@ -258,7 +263,7 @@ describe('timestamps', function() {
     const sub = Schema({ name: String }, { timestamps: false, _id: false });
     const schema = Schema({ data: sub });
 
-    const Model = db.model('gh8007', schema);
+    const Model = db.model('Test', schema);
 
     return co(function*() {
       let res = yield Model.create({ data: {} });
@@ -282,7 +287,7 @@ describe('timestamps', function() {
   });
 
   it('updates updatedAt when calling update without $set (gh-4768)', function() {
-    const Model = db.model('gh4768', Schema({ name: String }, { timestamps: true }));
+    const Model = db.model('Test', Schema({ name: String }, { timestamps: true }));
 
     return co(function*() {
       let doc = yield Model.create({ name: 'test1' });
@@ -291,6 +296,103 @@ describe('timestamps', function() {
       yield cb => setTimeout(cb, 50);
       doc = yield Model.findOneAndUpdate({}, doc.toObject(), { new: true });
       assert.ok(doc.updatedAt > start, `${doc.updatedAt} >= ${start}`);
+    });
+  });
+
+  it('updates updatedAt when calling update on subchild', function() {
+    const subchildschema = new mongoose.Schema({
+      name: String
+    }, { timestamps: true });
+    const schema = new mongoose.Schema({
+      name: String,
+      subchild: subchildschema
+    }, { timestamps: true });
+    const parentSchema = new mongoose.Schema({
+      child: schema
+    }, { timestamps: true });
+
+    const Model = db.model('Test', parentSchema);
+
+    return co(function*() {
+      let doc = yield Model.create({ name: 'test', child: {
+        name: 'child',
+        subchild: {
+          name: 'subchild'
+        }
+      } });
+      assert.ok(doc.child.updatedAt);
+      const startTime = doc.createdAt;
+      yield new Promise(resolve => setTimeout(resolve), 25);
+
+      doc = yield Model.findOneAndUpdate({}, { $set: {
+        'child.subchild.name': 'subChildUpdated'
+      } }, { new: true });
+
+      assert.ok(doc.updatedAt.valueOf() > startTime,
+        `Parent Timestamp not updated: ${doc.updatedAt}`);
+      assert.ok(doc.child.updatedAt.valueOf() > startTime,
+        `Child Timestamp not updated: ${doc.updatedAt}`);
+      assert.ok(doc.child.subchild.updatedAt.valueOf() > startTime,
+        `SubChild Timestamp not updated: ${doc.updatedAt}`);
+    });
+  });
+
+  it('sets timestamps on deeply nested docs on upsert (gh-8894)', function() {
+    const JournalSchema = Schema({ message: String }, { timestamps: true });
+    const ProductSchema = Schema({
+      name: String,
+      journal: [JournalSchema],
+      lastJournal: JournalSchema
+    }, { timestamps: true });
+    const schema = Schema({ products: [ProductSchema] }, { timestamps: true });
+    const Order = db.model('Order', schema);
+
+    const update = {
+      products: [{
+        name: 'ASUS Vivobook Pro',
+        journal: [{ message: 'out of stock' }],
+        lastJournal: { message: 'out of stock' }
+      }]
+    };
+
+    return Order.findOneAndUpdate({}, update, { upsert: true, new: true }).
+      then(doc => {
+        assert.ok(doc.products[0].journal[0].createdAt);
+        assert.ok(doc.products[0].journal[0].updatedAt);
+
+        assert.ok(doc.products[0].lastJournal.createdAt);
+        assert.ok(doc.products[0].lastJournal.updatedAt);
+      });
+  });
+
+  it('sets timestamps on bulk write without `$set` (gh-9268)', function() {
+    const NestedSchema = new Schema({ name: String }, {
+      timestamps: true,
+      _id: false
+    });
+    const TestSchema = new Schema({
+      nestedDoc: NestedSchema
+    });
+    const Test = db.model('Test', TestSchema);
+
+    return co(function*() {
+      yield Test.create({ nestedDoc: { name: 'test' } });
+      const doc = yield Test.findOne().lean();
+
+      yield cb => setTimeout(cb, 10);
+      yield Test.bulkWrite([
+        {
+          updateOne: {
+            filter: {},
+            update: {
+              'nestedDoc.name': 'test2'
+            }
+          }
+        }
+      ]);
+
+      const newDoc = yield Test.findById(doc).lean();
+      assert.ok(newDoc.nestedDoc.updatedAt > doc.nestedDoc.updatedAt);
     });
   });
 });

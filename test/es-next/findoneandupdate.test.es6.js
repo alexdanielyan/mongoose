@@ -79,6 +79,23 @@ describe('Tutorial: findOneAndUpdate()', function() {
     // acquit:ignore:end
   });
 
+  it('returnOriginal option', async function() {
+    const filter = { name: 'Jean-Luc Picard' };
+    const update = { age: 59 };
+
+    // `doc` is the document _after_ `update` was applied because of
+    // `returnOriginal: false`
+    let doc = await Character.findOneAndUpdate(filter, update, {
+      returnOriginal: false
+    });
+    doc.name; // 'Jean-Luc Picard'
+    doc.age; // 59
+    // acquit:ignore:start
+    assert.equal(doc.name, 'Jean-Luc Picard');
+    assert.equal(doc.age, 59);
+    // acquit:ignore:end
+  });
+
   it('save race condition', async function() {
     const filter = { name: 'Jean-Luc Picard' };
     const update = { age: 59 };
@@ -119,6 +136,31 @@ describe('Tutorial: findOneAndUpdate()', function() {
     // acquit:ignore:start
     assert.equal(doc.name, 'Will Riker');
     assert.equal(doc.age, 29);
+    // acquit:ignore:end
+  });
+
+  it('rawResult', async function() {
+    const filter = { name: 'Will Riker' };
+    const update = { age: 29 };
+
+    await Character.countDocuments(filter); // 0
+    // acquit:ignore:start
+    assert.equal(await Character.countDocuments(filter), 0);
+    // acquit:ignore:end
+
+    let res = await Character.findOneAndUpdate(filter, update, {
+      new: true,
+      upsert: true,
+      rawResult: true // Return the raw result from the MongoDB driver
+    });
+
+    res.value instanceof Character; // true
+    // The below property will be `false` if MongoDB upserted a new
+    // document, and `true` if MongoDB updated an existing object.
+    res.lastErrorObject.updatedExisting; // false
+    // acquit:ignore:start
+    assert.ok(res.value instanceof Character);
+    assert.ok(!res.lastErrorObject.updatedExisting);
     // acquit:ignore:end
   });
 });

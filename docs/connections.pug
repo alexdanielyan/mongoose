@@ -5,6 +5,10 @@ append style
   script(type="text/javascript" src="/docs/js/native.js")
 
 block content
+  <a class="edit-docs-link" href="#{editLink}" target="_blank">
+    <img src="/docs/images/pencil.svg" />
+  </a>
+
   :markdown
     <h2><a href="#connections">Connections</a></h2>
 
@@ -88,6 +92,28 @@ block content
     mongoose.set('bufferCommands', false);
     ```
 
+    Note that buffering is also responsible for waiting until Mongoose
+    creates collections if you use the [`autoCreate` option](/docs/guide.html#autoCreate).
+    If you disable buffering, you should also disable the `autoCreate`
+    option and use [`createCollection()`](/docs/api/model.html#model_Model.createCollection)
+    to create [capped collections](/docs/guide.html#capped) or
+    [collections with collations](/docs/guide.html#collation).
+
+    ```javascript
+    const schema = new Schema({
+      name: String
+    }, {
+      capped: { size: 1024 },
+      bufferCommands: false,
+      autoCreate: false // disable `autoCreate` since `bufferCommands` is false
+    });
+
+    const Model = mongoose.model('Test', schema);
+    // Explicitly create the collection before using it
+    // so the collection is capped.
+    await Model.createCollection();
+    ```
+
     <h3 id="error-handling"><a href="#error-handling">Error Handling</a></h3>
 
     There are two classes of errors that can occur with a Mongoose connection.
@@ -145,7 +171,6 @@ block content
     * `useUnifiedTopology`- False by default. Set to `true` to opt in to using [the MongoDB driver's new connection management engine](/docs/deprecations.html#useunifiedtopology). You should set this option to `true`, except for the unlikely case that it prevents you from maintaining a stable connection.
     * `promiseLibrary`    - Sets the [underlying driver's promise library](http://mongodb.github.io/node-mongodb-native/3.1/api/MongoClient.html).
     * `poolSize`          - The maximum number of sockets the MongoDB driver will keep open for this connection. By default, `poolSize` is 5. Keep in mind that, as of MongoDB 3.4, MongoDB only allows one operation per socket at a time, so you may want to increase this if you find you have a few slow queries that are blocking faster queries from proceeding. See [Slow Trains in MongoDB and Node.js](http://thecodebarbarian.com/slow-trains-in-mongodb-and-nodejs).
-    * `connectTimeoutMS`  - How long the MongoDB driver will wait before killing a socket due to inactivity _during initial connection_. Defaults to 30000. This option is passed transparently to [Node.js' `socket#setTimeout()` function](https://nodejs.org/api/net.html#net_socket_settimeout_timeout_callback).
     * `socketTimeoutMS`   - How long the MongoDB driver will wait before killing a socket due to inactivity _after initial connection_. A socket may be inactive because of either no activity or a long-running operation. This is set to `30000` by default, you should set this to 2-3x your longest running operation if you expect some of your database operations to run longer than 20 seconds. This option is passed to [Node.js `socket#setTimeout()` function](https://nodejs.org/api/net.html#net_socket_settimeout_timeout_callback) after the MongoDB driver successfully completes.
     * `family`            - Whether to connect using IPv4 or IPv6. This option passed to [Node.js' `dns.lookup()`](https://nodejs.org/api/dns.html#dns_dns_lookup_hostname_options_callback) function. If you don't specify this option, the MongoDB driver will try IPv6 first and then IPv4 if IPv6 fails. If your `mongoose.connect(uri)` call takes a long time, try `mongoose.connect(uri, { family: 4 })`
     * `authSource`        - The database to use when authenticating with `user` and `pass`. In MongoDB, [users are scoped to a database](https://docs.mongodb.com/manual/tutorial/manage-users-and-roles/). If you are getting an unexpected login failure, you may need to set this option.
@@ -157,21 +182,31 @@ block content
     * `reconnectTries`    - If you're connected to a single server or mongos proxy (as opposed to a replica set), the MongoDB driver will try to reconnect every `reconnectInterval` milliseconds for `reconnectTries` times, and give up afterward. When the driver gives up, the mongoose connection emits a `reconnectFailed` event. This option does nothing for replica set connections.
     * `reconnectInterval` - See `reconnectTries`
     * `bufferMaxEntries`  - The MongoDB driver also has its own buffering mechanism that kicks in when the driver is disconnected. Set this option to 0 and set `bufferCommands` to `false` on your schemas if you want your database operations to fail immediately when the driver is not connected, as opposed to waiting for reconnection.
+    * `connectTimeoutMS`  - How long the MongoDB driver will wait before killing a socket due to inactivity _during initial connection_. Defaults to 30000. This option is passed transparently to [Node.js' `socket#setTimeout()` function](https://nodejs.org/api/net.html#net_socket_settimeout_timeout_callback).
+
+    The following options are important for tuning Mongoose only if you are
+    running **with** [the `useUnifiedTopology` option](/docs/deprecations.html#useunifiedtopology):
+
+    * `serverSelectionTimeoutMS` - With `useUnifiedTopology`, the MongoDB driver will try to find a server to send any given operation to, and keep retrying for `serverSelectionTimeoutMS` milliseconds. If not set, the MongoDB driver defaults to using `30000` (30 seconds).
+    * `heartbeatFrequencyMS` - With `useUnifiedTopology`, the MongoDB driver sends a heartbeat every `heartbeatFrequencyMS` to check on the status of the connection. A heartbeat is subject to `serverSelectionTimeoutMS`, so the MongoDB driver will retry failed heartbeats for up to 30 seconds by default. Mongoose only emits a `'disconnected'` event after a heartbeat has failed, so you may want to decrease this setting to reduce the time between when your server goes down and when Mongoose emits `'disconnected'`. We recommend you do **not** set this setting below 1000, too many heartbeats can lead to performance degradation.
+
+    The `serverSelectionTimeoutMS` option also handles how long `mongoose.connect()` will
+    retry initial connection before erroring out. With `useUnifiedTopology`, `mongoose.connect()`
+    will retry for 30 seconds by default (default `serverSelectionTimeoutMS`) before
+    erroring out. To get faster feedback on failed operations, you can reduce `serverSelectionTimeoutMS`
+    to 5000 as shown below.
 
     Example:
 
     ```javascript
     const options = {
       useNewUrlParser: true,
+      useUnifiedTopology: true,
       useCreateIndex: true,
       useFindAndModify: false,
       autoIndex: false, // Don't build indexes
-      reconnectTries: Number.MAX_VALUE, // Never stop trying to reconnect
-      reconnectInterval: 500, // Reconnect every 500ms
       poolSize: 10, // Maintain up to 10 socket connections
-      // If not connected, return errors immediately rather than waiting for reconnect
-      bufferMaxEntries: 0,
-      connectTimeoutMS: 10000, // Give up initial connection after 10 seconds
+      serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
       socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
       family: 4 // Use IPv4, skip trying IPv6
     };
@@ -238,7 +273,7 @@ block content
     connection may emit.
 
     * `connecting`: Emitted when Mongoose starts making its initial connection to the MongoDB server
-    * `connected`: Emitted when Mongoose successfully makes its initial connection to the MongoDB server
+    * `connected`: Emitted when Mongoose successfully makes its initial connection to the MongoDB server, or when Mongoose reconnects after losing connectivity.
     * `open`: Equivalent to `connected`
     * `disconnecting`: Your app called [`Connection#close()`](api.html#connection_Connection-close) to disconnect from MongoDB
     * `disconnected`: Emitted when Mongoose lost connection to the MongoDB server. This event may be due to your code explicitly closing the connection, the database server crashing, or network connectivity issues.
@@ -248,6 +283,11 @@ block content
     * `fullsetup`: Emitted when you're connecting to a replica set and Mongoose has successfully connected to the primary and at least one secondary.
     * `all`: Emitted when you're connecting to a replica set and Mongoose has successfully connected to all servers specified in your connection string.
     * `reconnectFailed`: Emitted when you're connected to a standalone server and Mongoose has run out of [`reconnectTries`](https://thecodebarbarian.com/managing-connections-with-the-mongodb-node-driver.html#handling-single-server-outages). The [MongoDB driver](http://npmjs.com/package/mongodb) will no longer attempt to reconnect after this event is emitted. This event will never be emitted if you're connected to a replica set.
+
+    When you're connecting to a single MongoDB server (a "standalone"), Mongoose will emit 'disconnected' if it gets
+    disconnected from the standalone server, and 'connected' if it successfully connects to the standalone. In a
+    replica set with `useUnifiedTopology = true`, Mongoose will emit 'disconnected' if it loses connectivity to
+    _every_ server in the replica set, and 'connected' if it manages to reconnect to at least one server in the replica set.
 
     <h3 id="keepAlive"><a href="#keepAlive">A note about keepAlive</a></h3>
 
@@ -362,11 +402,14 @@ block content
     <h3 id="multiple_connections"><a href="#multiple_connections">Multiple connections</a></h3>
 
     So far we've seen how to connect to MongoDB using Mongoose's default
-    connection. At times we may need multiple connections open to Mongo, each
-    with different read/write settings, or maybe just to different databases for
-    example. In these cases we can utilize `mongoose.createConnection()` which
-    accepts all the arguments already discussed and returns a fresh connection
-    for you.
+    connection. Mongoose creates a _default connection_ when you call `mongoose.connect()`.
+    You can access the default connection using `mongoose.connection`.
+    
+    You may need multiple connections to MongoDB for several reasons.
+    One reason is if you have multiple databases or multiple MongoDB clusters.
+    Another reason is to work around [slow trains](https://thecodebarbarian.com/slow-trains-in-mongodb-and-nodejs).
+    The `mongoose.createConnection()` function takes the same arguments as
+    `mongoose.connect()` and returns a new connection.
 
     ```javascript
     const conn = mongoose.createConnection('mongodb://[username:password@]host1[:port1][,host2[:port2],...[,hostN[:portN]]][/[database][?options]]', options);
@@ -381,12 +424,13 @@ block content
     ```
 
     If you use multiple connections, you should make sure you export schemas,
-    **not** models.
+    **not** models. Exporting a model from a file is called the _export model pattern_.
+    The export model pattern is limited because you can only use one connection.
 
     ```javascript
     const userSchema = new Schema({ name: String, email: String });
 
-    // The correct pattern is to export a schema
+    // The alternative to the export model pattern is the export schema pattern.
     module.exports = userSchema;
 
     // Because if you export a model as shown below, the model will be scoped
@@ -394,19 +438,44 @@ block content
     // module.exports = mongoose.model('User', userSchema);
     ```
 
-    In addition, you should define a factory function that registers models on a
-    connection to make it easy to register all your models on a given connection.
+    If you use the export schema pattern, you still need to create models
+    somewhere. There are two common patterns. First is to export a connection
+    and register the models on the connection in the file:
 
     ```javascript
-    const userSchema = require('./userSchema');
+    // connections/fast.js
+    const mongoose = require('mongoose');
 
-    module.exports = conn => {
-      conn.model('User', userSchema);
-    };
+    const conn = mongoose.createConnection(process.env.MONGODB_URI);
+    conn.model('User', require('../schemas/user'));
+
+    module.exports = conn;
+
+    // connections/slow.js
+    const mongoose = require('mongoose');
+
+    const conn = mongoose.createConnection(process.env.MONGODB_URI);
+    conn.model('User', require('../schemas/user'));
+    conn.model('PageView', require('../schemas/pageView'));
+
+    module.exports = conn;
     ```
 
-    Mongoose creates a _default connection_ when you call `mongoose.connect()`.
-    You can access the default connection using `mongoose.connection`.
+    Another alternative is to register connections with a dependency injector
+    or another [inversion of control (IOC) pattern](https://thecodebarbarian.com/using-ramda-as-a-dependency-injector).
+
+    ```javascript
+    const mongoose = require('mongoose');
+
+    module.exports = function connectionFactory() {
+      const conn = mongoose.createConnection(process.env.MONGODB_URI);
+
+      conn.model('User', require('../schemas/user'));
+      conn.model('PageView', require('../schemas/pageView'));
+
+      return conn; 
+    };
+    ```
 
     <h3 id="connection_pools"><a href="#connection_pools">Connection Pools</a></h3>
 

@@ -16,7 +16,6 @@ const setValue = require('../lib/utils').setValue;
 const mongoose = require('./common').mongoose;
 const Schema = mongoose.Schema;
 const MongooseDocumentArray = mongoose.Types.DocumentArray;
-const collection = 'types.documentarray_' + random();
 
 /**
  * Setup.
@@ -38,7 +37,7 @@ function TestDoc(schema) {
    */
 
   const SubSchema = new Schema({
-    title: {type: String}
+    title: { type: String }
   });
 
   Subdocument.prototype.$__setSchema(schema || SubSchema);
@@ -60,6 +59,10 @@ describe('types.documentarray', function() {
   after(function(done) {
     db.close(done);
   });
+
+  beforeEach(() => db.deleteModel(/.*/));
+  afterEach(() => require('./util').clearTestData(db));
+  afterEach(() => require('./util').stopRemainingOps(db));
 
   it('behaves and quacks like an array', function(done) {
     const a = new MongooseDocumentArray();
@@ -87,8 +90,8 @@ describe('types.documentarray', function() {
 
     // test with custom string _id
     let Custom = new Schema({
-      title: {type: String},
-      _id: {type: String, required: true}
+      title: { type: String },
+      _id: { type: String, required: true }
     });
 
     Subdocument = TestDoc(Custom);
@@ -104,8 +107,8 @@ describe('types.documentarray', function() {
 
     // test with custom number _id
     const CustNumber = new Schema({
-      title: {type: String},
-      _id: {type: Number, required: true}
+      title: { type: String },
+      _id: { type: Number, required: true }
     });
 
     Subdocument = TestDoc(CustNumber);
@@ -121,28 +124,28 @@ describe('types.documentarray', function() {
 
     // test with object as _id
     Custom = new Schema({
-      title: {type: String},
-      _id: {one: {type: String}, two: {type: String}}
+      title: { type: String },
+      _id: { one: { type: String }, two: { type: String } }
     });
 
     Subdocument = TestDoc(Custom);
 
     sub1 = new Subdocument();
-    sub1._id = {one: 'rolling', two: 'rock'};
+    sub1._id = { one: 'rolling', two: 'rock' };
     sub1.title = 'to be a rock and not to roll';
 
     sub2 = new Subdocument();
-    sub2._id = {one: 'rock', two: 'roll'};
+    sub2._id = { one: 'rock', two: 'roll' };
     sub2.title = 'rock-n-roll';
 
     a = new MongooseDocumentArray([sub1, sub2]);
-    assert.notEqual(a.id({one: 'rolling', two: 'rock'}).title, 'rock-n-roll');
-    assert.equal(a.id({one: 'rock', two: 'roll'}).title, 'rock-n-roll');
+    assert.notEqual(a.id({ one: 'rolling', two: 'rock' }).title, 'rock-n-roll');
+    assert.equal(a.id({ one: 'rock', two: 'roll' }).title, 'rock-n-roll');
 
     // test with no _id
     let NoId = new Schema({
-      title: {type: String}
-    }, {noId: true});
+      title: { type: String }
+    }, { noId: true });
 
     Subdocument = TestDoc(NoId);
 
@@ -160,8 +163,8 @@ describe('types.documentarray', function() {
 
     // test the _id option, noId is deprecated
     NoId = new Schema({
-      title: {type: String}
-    }, {_id: false});
+      title: { type: String }
+    }, { _id: false });
 
     Subdocument = TestDoc(NoId);
 
@@ -182,10 +185,10 @@ describe('types.documentarray', function() {
 
     // test when _id is a populated document
     Custom = new Schema({
-      title: {type: String}
+      title: { type: String }
     });
 
-    const Custom1 = new Schema({}, {id: false});
+    const Custom1 = new Schema({}, { id: false });
 
     Subdocument = TestDoc(Custom);
     const Subdocument1 = TestDoc(Custom1);
@@ -232,7 +235,7 @@ describe('types.documentarray', function() {
     });
     it('passes options to its documents (gh-1415) (gh-4455)', function(done) {
       const subSchema = new Schema({
-        title: {type: String}
+        title: { type: String }
       });
 
       subSchema.set('toObject', {
@@ -245,18 +248,10 @@ describe('types.documentarray', function() {
       });
 
       const db = mongoose.createConnection();
-      let M = db.model('gh-1415', {docs: [subSchema]});
-      let m = new M;
-      m.docs.push({docs: [{title: 'hello'}]});
-      let delta = m.$__delta()[1];
-      assert.equal(delta.$push.docs.$each[0].changed, undefined);
-
-      M = db.model('gh-1415-1', new Schema({docs: [subSchema]}, {
-        usePushEach: true
-      }));
-      m = new M;
-      m.docs.push({docs: [{title: 'hello'}]});
-      delta = m.$__delta()[1];
+      const M = db.model('Test', { docs: [subSchema] });
+      const m = new M;
+      m.docs.push({ docs: [{ title: 'hello' }] });
+      const delta = m.$__delta()[1];
       assert.equal(delta.$push.docs.$each[0].changed, undefined);
 
       done();
@@ -282,8 +277,8 @@ describe('types.documentarray', function() {
         }
       });
 
-      const First = db.model('first', FirstSchema);
-      const Second = db.model('second', SecondSchema);
+      const First = db.model('Test', FirstSchema);
+      const Second = db.model('Test1', SecondSchema);
 
       const first = new First({});
 
@@ -305,11 +300,12 @@ describe('types.documentarray', function() {
       const a = new MongooseDocumentArray([]);
       assert.equal(typeof a.create, 'function');
 
-      const schema = new Schema({docs: [new Schema({name: 'string'})]});
-      const T = mongoose.model('embeddedDocument#create_test', schema, 'asdfasdfa' + random());
+      const schema = new Schema({ docs: [new Schema({ name: 'string' })] });
+      mongoose.deleteModel(/Test/);
+      const T = mongoose.model('Test', schema);
       const t = new T;
       assert.equal(typeof t.docs.create, 'function');
-      const subdoc = t.docs.create({name: 100});
+      const subdoc = t.docs.create({ name: 100 });
       assert.ok(subdoc._id);
       assert.equal(subdoc.name, '100');
       assert.ok(subdoc instanceof EmbeddedDocument);
@@ -319,19 +315,19 @@ describe('types.documentarray', function() {
 
   describe('push()', function() {
     it('does not re-cast instances of its embedded doc', function(done) {
-      const child = new Schema({name: String, date: Date});
+      const child = new Schema({ name: String, date: Date });
       child.pre('save', function(next) {
         this.date = new Date;
         next();
       });
-      const schema = new Schema({children: [child]});
-      const M = db.model('embeddedDocArray-push-re-cast', schema, 'edarecast-' + random());
+      const schema = new Schema({ children: [child] });
+      const M = db.model('Test', schema, 'edarecast-' + random());
       const m = new M;
       m.save(function(err) {
         assert.ifError(err);
         M.findById(m._id, function(err, doc) {
           assert.ifError(err);
-          const c = doc.children.create({name: 'first'});
+          const c = doc.children.create({ name: 'first' });
           assert.equal(c.date, undefined);
           doc.children.push(c);
           assert.equal(c.date, undefined);
@@ -361,9 +357,9 @@ describe('types.documentarray', function() {
 
     it('corrects #ownerDocument() and index if value was created with array.create() (gh-1385)', function(done) {
       const mg = new mongoose.Mongoose;
-      const M = mg.model('1385', {docs: [{name: String}]});
+      const M = mg.model('Test', { docs: [{ name: String }] });
       const m = new M;
-      const doc = m.docs.create({name: 'test 1385'});
+      const doc = m.docs.create({ name: 'test 1385' });
       assert.equal(String(doc.ownerDocument()._id), String(m._id));
       m.docs.push(doc);
       assert.equal(doc.ownerDocument()._id, String(m._id));
@@ -372,11 +368,11 @@ describe('types.documentarray', function() {
     });
 
     it('corrects #ownerDocument() if value was created with array.create() and set() (gh-7504)', function(done) {
-      const M = db.model('gh7504', {
-        docs: [{name: { type: String, validate: () => false } }]
+      const M = db.model('Test', {
+        docs: [{ name: { type: String, validate: () => false } }]
       });
       const m = new M({});
-      const doc = m.docs.create({name: 'test'});
+      const doc = m.docs.create({ name: 'test' });
       m.set('docs', [doc]);
       assert.equal(doc.ownerDocument()._id.toString(), String(m._id));
       assert.strictEqual(doc.__index, 0);
@@ -394,11 +390,12 @@ describe('types.documentarray', function() {
         }]
       });
 
-      const Parent = mongoose.model('gh7724', parentSchema);
+      mongoose.deleteModel(/Test/);
+      const Parent = mongoose.model('Test', parentSchema);
 
       const p = new Parent({
         name: 'Eddard Stark',
-        children: [{ name: 'Arya Stark', gender: 'F'}]
+        children: [{ name: 'Arya Stark', gender: 'F' }]
       });
 
       p.children.push({ name: 'Sansa Stark' });
@@ -425,12 +422,12 @@ describe('types.documentarray', function() {
       comments: [Comments]
     });
 
-    const Post = db.model('docarray-BlogPost', BlogPost, collection);
+    const Post = db.model('BlogPost', BlogPost);
 
-    const p = new Post({title: 'comment nesting'});
-    const c1 = p.comments.create({title: 'c1'});
-    const c2 = c1.comments.create({title: 'c2'});
-    const c3 = c2.comments.create({title: 'c3'});
+    const p = new Post({ title: 'comment nesting' });
+    const c1 = p.comments.create({ title: 'c1' });
+    const c2 = c1.comments.create({ title: 'c2' });
+    const c3 = c2.comments.create({ title: 'c3' });
 
     p.comments.push(c1);
     c1.comments.push(c2);
@@ -442,7 +439,7 @@ describe('types.documentarray', function() {
       Post.findById(p._id, function(err, p) {
         assert.ifError(err);
 
-        p.comments[0].comments[0].comments[0].comments.push({title: 'c4'});
+        p.comments[0].comments[0].comments[0].comments.push({ title: 'c4' });
         p.save(function(err) {
           assert.ifError(err);
 
@@ -461,7 +458,7 @@ describe('types.documentarray', function() {
       const calls = [];
       const schema = new Schema({
         docs: {
-          type: [{name: 'string'}],
+          type: [{ name: 'string' }],
           required: function() {
             calls.push(this);
             return true;
@@ -469,10 +466,11 @@ describe('types.documentarray', function() {
         }
       });
 
-      const T = mongoose.model('TopLevelRequired', schema);
+      mongoose.deleteModel(/Test/);
+      const T = mongoose.model('Test', schema);
       const t = new T({});
-      t.docs.push({name: 'test1'});
-      t.docs.push({name: 'test2'});
+      t.docs.push({ name: 'test1' });
+      t.docs.push({ name: 'test2' });
 
       t.validateSync();
       assert.equal(calls.length, 1);
@@ -491,10 +489,11 @@ describe('types.documentarray', function() {
         }]
       });
 
-      const T = mongoose.model('DocArrayNestedRequired', schema);
+      mongoose.deleteModel(/Test/);
+      const T = mongoose.model('Test', schema);
       const t = new T({});
       t.docs.push(null);
-      t.docs.push({name: 'test2'});
+      t.docs.push({ name: 'test2' });
 
       const err = t.validateSync();
       assert.equal(calls.length, 2);
@@ -506,17 +505,18 @@ describe('types.documentarray', function() {
 
   describe('invalidate()', function() {
     it('works', function(done) {
-      const schema = new Schema({docs: [{name: 'string'}]});
+      const schema = new Schema({ docs: [{ name: 'string' }] });
       schema.pre('validate', function(next) {
         const subdoc = this.docs[this.docs.length - 1];
         subdoc.invalidate('name', 'boo boo', '%');
         next();
       });
-      const T = mongoose.model('embeddedDocument#invalidate_test', schema, 'asdfasdfa' + random());
+      mongoose.deleteModel(/Test/);
+      const T = mongoose.model('Test', schema);
       const t = new T;
-      t.docs.push({name: 100});
+      t.docs.push({ name: 100 });
 
-      const subdoc = t.docs.create({name: 'yep'});
+      const subdoc = t.docs.create({ name: 'yep' });
       assert.throws(function() {
         // has no parent array
         subdoc.invalidate('name', 'junk', 47);
@@ -533,12 +533,12 @@ describe('types.documentarray', function() {
     });
 
     it('handles validation failures', function(done) {
-      const nested = new Schema({v: {type: Number, max: 30}});
+      const nested = new Schema({ v: { type: Number, max: 30 } });
       const schema = new Schema({
         docs: [nested]
-      }, {collection: 'embedded-invalidate-' + random()});
-      const M = db.model('embedded-invalidate', schema);
-      const m = new M({docs: [{v: 900}]});
+      });
+      const M = db.model('Test', schema);
+      const m = new M({ docs: [{ v: 900 }] });
       m.save(function(err) {
         assert.equal(err.errors['docs.0.v'].value, 900);
         done();
@@ -550,7 +550,7 @@ describe('types.documentarray', function() {
       const schema = new Schema({
         docs: [nested]
       });
-      const M = db.model('gh6723', schema);
+      const M = db.model('Test', schema);
 
       const m = new M({});
       m.docs = [50];
@@ -565,9 +565,9 @@ describe('types.documentarray', function() {
       const schema = new Schema({
         docs: [nested]
       });
-      const M = db.model('gh8317', schema);
+      const M = db.model('Test', schema);
 
-      const doc = M.hydrate({ docs: [{ v: 1 }, { v: 2 }]});
+      const doc = M.hydrate({ docs: [{ v: 1 }, { v: 2 }] });
       let arr = doc.docs;
       arr = arr.slice();
       arr.splice(0, 1);
@@ -577,8 +577,9 @@ describe('types.documentarray', function() {
     });
 
     it('map() works', function() {
-      const personSchema = new Schema({ friends: [{ name: { type: String } }]});
-      const Person = mongoose.model('gh8317-map', personSchema);
+      const personSchema = new Schema({ friends: [{ name: { type: String } }] });
+      mongoose.deleteModel(/Test/);
+      const Person = mongoose.model('Test', personSchema);
 
       const person = new Person({ friends: [{ name: 'Hafez' }] });
 
@@ -590,7 +591,7 @@ describe('types.documentarray', function() {
     });
 
     it('slice() after map() works (gh-8399)', function() {
-      const MyModel = db.model('gh8399', Schema({
+      const MyModel = db.model('Test', Schema({
         myArray: [{ name: String }]
       }));
 
@@ -610,6 +611,27 @@ describe('types.documentarray', function() {
         'd'
       ]);
     });
+
+    it('unshift() after map() works (gh-9012)', function() {
+      const MyModel = db.model('Test', Schema({
+        myArray: [{ name: String }]
+      }));
+
+      const doc = new MyModel({
+        myArray: [{ name: 'b' }, { name: 'c' }]
+      });
+      let myArray = doc.myArray;
+
+      myArray = myArray.map(val => ({ name: `${val.name} mapped` }));
+
+      myArray.unshift({ name: 'a inserted' });
+
+      assert.deepEqual(myArray.map(v => v.name), [
+        'a inserted',
+        'b mapped',
+        'c mapped'
+      ]);
+    });
   });
 
   it('cleans modified subpaths on splice() (gh-7249)', function() {
@@ -621,7 +643,7 @@ describe('types.documentarray', function() {
       children: [childSchema]
     });
 
-    const Parent = db.model('gh7249', parentSchema);
+    const Parent = db.model('Test', parentSchema);
 
     return co(function*() {
       let parent = yield Parent.create({

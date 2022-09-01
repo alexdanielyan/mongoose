@@ -17,6 +17,7 @@ const Mixed = SchemaTypes.Mixed;
 const DocumentObjectId = mongoose.Types.ObjectId;
 const ReadPref = mongoose.mongo.ReadPreference;
 const vm = require('vm');
+const co = require('co');
 const Buffer = require('safe-buffer').Buffer;
 
 /**
@@ -54,6 +55,10 @@ describe('schema', function() {
     }));
   });
 
+  beforeEach(() => db.deleteModel(/.*/));
+  afterEach(() => require('./util').clearTestData(db));
+  afterEach(() => require('./util').stopRemainingOps(db));
+
   describe('nested fields with same name', function() {
     let NestedModel;
 
@@ -67,7 +72,7 @@ describe('schema', function() {
         },
         b: { $type: String }
       }, { typeKey: '$type' });
-      NestedModel = db.model('Nested', NestedSchema);
+      NestedModel = db.model('Test', NestedSchema);
     });
 
     it('don\'t disappear', function(done) {
@@ -436,7 +441,7 @@ describe('schema', function() {
         threw = true;
         assert.equal(error.name, 'CastError');
         assert.equal(error.message,
-          'Cast to [[number]] failed for value "[["abcd"]]" at path "nums"');
+          'Cast to [[Number]] failed for value "[["abcd"]]" at path "nums"');
       }
       assert.ok(threw);
 
@@ -885,7 +890,7 @@ describe('schema', function() {
         }, { discriminatorKey: 'kind', _id: false });
 
         const batchSchema = new Schema({
-          events: [eventSchema],
+          events: [eventSchema]
         });
 
         const docArray = batchSchema.path('events');
@@ -895,7 +900,7 @@ describe('schema', function() {
         }, { _id: false }));
 
         docArray.discriminator('gh6485_Purchased', Schema({
-          product: { type: String, index: true },
+          product: { type: String, index: true }
         }, { _id: false }));
 
         assert.deepEqual(batchSchema.indexes().map(v => v[0]), [
@@ -1191,7 +1196,7 @@ describe('schema', function() {
   });
 
   describe('#add()', function() {
-    it('does not polute existing paths', function(done) {
+    it('does not pollute existing paths', function(done) {
       let o = { name: String };
       let s = new Schema(o);
 
@@ -1247,9 +1252,8 @@ describe('schema', function() {
         }
       });
 
-      mongoose.model('Merged', MergedSchema);
-
-      const Merged = db.model('Merged', 'merged_' + Math.random());
+      db.deleteModel(/Test/);
+      const Merged = db.model('Test', MergedSchema);
 
       const merged = new Merged({
         a: {
@@ -1375,11 +1379,11 @@ describe('schema', function() {
       const el = new Schema({ title: String });
       const so = new Schema({
         title: String,
-        obj: { type: Schema.Types.ObjectId, ref: 'Element' }
+        obj: { type: Schema.Types.ObjectId, ref: 'Test' }
       });
 
-      const Element = db.model('Element', el);
-      const Some = db.model('Some', so);
+      const Element = db.model('Test', el);
+      const Some = db.model('Test1', so);
 
       const ele = new Element({ title: 'thing' });
 
@@ -1434,18 +1438,6 @@ describe('schema', function() {
 
       assert.throws(function() {
         new Schema({
-          db: String
-        });
-      }, /`db` may not be used as a schema pathname/);
-
-      assert.throws(function() {
-        new Schema({
-          modelName: String
-        });
-      }, /`modelName` may not be used as a schema pathname/);
-
-      assert.throws(function() {
-        new Schema({
           isNew: String
         });
       }, /`isNew` may not be used as a schema pathname/);
@@ -1497,10 +1489,9 @@ describe('schema', function() {
 
     it('permit _scope to be used (gh-1184)', function(done) {
       const child = new Schema({ _scope: Schema.ObjectId });
-      const C = db.model('scope', child);
+      const C = db.model('Test', child);
       const c = new C;
       c.save(function(err) {
-        db.close();
         assert.ifError(err);
         try {
           c._scope;
@@ -1744,13 +1735,13 @@ describe('schema', function() {
       done();
     });
 
-    it('methods named toString (gh-4551)', function(done) {
+    it('methods named toString (gh-4551)', function() {
       this.schema.methods.toString = function() {
         return 'test';
       };
-      // should not throw
-      mongoose.model('gh4551', this.schema);
-      done();
+      assert.doesNotThrow(() => {
+        mongoose.model('gh4551', this.schema);
+      });
     });
 
     it('handles default value = 0 (gh-4620)', function(done) {
@@ -1859,7 +1850,7 @@ describe('schema', function() {
             this.set('name.last', split[1]);
           });
 
-        const M = db.model('gh6274', PersonSchema.clone());
+        const M = db.model('Test', PersonSchema.clone());
 
         const doc = new M({ name: { first: 'Axl', last: 'Rose' } });
         assert.equal(doc.name.full, 'Axl Rose');
@@ -1881,7 +1872,7 @@ describe('schema', function() {
           _id: false,
           id: false
         });
-        const M = db.model('gh6274_option', clone);
+        const M = db.model('Test', clone);
 
         const doc = new M({});
 
@@ -1900,8 +1891,9 @@ describe('schema', function() {
         const schema = new db.Schema({ name: MyType });
         const otherSchema = schema.clone();
 
-        // Should not throw
-        otherSchema.add({ name2: MyType });
+        assert.doesNotThrow(function() {
+          otherSchema.add({ name2: MyType });
+        });
       });
 
       it('clones schema types (gh-7537)', function() {
@@ -1949,7 +1941,7 @@ describe('schema', function() {
         schema.path('fruits').discriminator('banana', clone);
         assert.ok(clone.path('color').caster.discriminators);
 
-        const Basket = db.model('gh7894', schema);
+        const Basket = db.model('Test', schema);
         const b = new Basket({
           fruits: [
             {
@@ -2010,13 +2002,13 @@ describe('schema', function() {
       });
 
       assert.equal(schema.childSchemas.length, 2);
-      assert.equal(schema.childSchemas[0].schema, schema1);
-      assert.equal(schema.childSchemas[1].schema, schema2);
+      assert.strictEqual(schema.childSchemas[0].schema, schema1);
+      assert.strictEqual(schema.childSchemas[1].schema, schema2);
 
       schema = schema.clone();
       assert.equal(schema.childSchemas.length, 2);
-      assert.equal(schema.childSchemas[0].schema, schema1);
-      assert.equal(schema.childSchemas[1].schema, schema2);
+      assert.strictEqual(schema.childSchemas[0].schema, schema1);
+      assert.strictEqual(schema.childSchemas[1].schema, schema2);
 
       done();
     });
@@ -2120,7 +2112,7 @@ describe('schema', function() {
 
   it('required paths with clone() (gh-8111)', function() {
     const schema = Schema({ field: { type: String, required: true } });
-    const Model = db.model('gh8111', schema.clone());
+    const Model = db.model('Test', schema.clone());
 
     const doc = new Model({});
 
@@ -2132,14 +2124,14 @@ describe('schema', function() {
 
   it('getters/setters with clone() (gh-8124)', function() {
     const schema = new mongoose.Schema({
-      field: {type: String, required: true}
+      field: { type: String, required: true }
     });
 
     schema.path('field').set(value => value ? value.toUpperCase() : value);
 
-    const TestKo = db.model('gh8124', schema.clone());
+    const TestKo = db.model('Test', schema.clone());
 
-    const testKo = new TestKo({field: 'upper'});
+    const testKo = new TestKo({ field: 'upper' });
     assert.equal(testKo.field, 'UPPER');
   });
 
@@ -2386,5 +2378,97 @@ describe('schema', function() {
     assert.equal(TurboManSchema.path('color').instance, 'String');
     assert.equal(TurboManSchema.path('price').instance, 'Number');
     assert.equal(TurboManSchema.path('year').instance, 'Number');
+  });
+
+  describe('gh-8849', function() {
+    it('treats `select: undefined` as not specifying `select` option', function() {
+      const userSchema = new Schema({ name: { type: String, select: undefined } });
+      const User = db.model('User', userSchema);
+
+      return co(function*() {
+        yield User.create({ name: 'Hafez' });
+        const user = yield User.findOne();
+
+        assert.equal(user.name, 'Hafez');
+      });
+    });
+
+    it('treats `select: null` as not specifying `select` option', function() {
+      const userSchema = new Schema({ name: { type: String, select: null } });
+      const User = db.model('User', userSchema);
+
+      return co(function*() {
+        yield User.create({ name: 'Hafez' });
+        const user = yield User.findOne();
+
+        assert.equal(user.name, 'Hafez');
+      });
+    });
+  });
+
+  describe('Schema.reserved (gh-8869)', function() {
+    it('throws errors on compiling schema with reserved key as a flat type', function() {
+      const buildInvalidSchema = () => new Schema({ save: String });
+
+      assert.throws(buildInvalidSchema, /`save` may not be used as a schema pathname/);
+    });
+
+    it('throws errors on compiling schema with reserved key as a nested object', function() {
+      const buildInvalidSchema = () => new Schema({ save: { nested: String } });
+
+      assert.throws(buildInvalidSchema, /`save` may not be used as a schema pathname/);
+    });
+
+    it('throws errors on compiling schema with reserved key as a nested array', function() {
+      const buildInvalidSchema = () => new Schema({ save: [{ nested: String }] });
+
+      assert.throws(buildInvalidSchema, /`save` may not be used as a schema pathname/);
+    });
+  });
+
+  describe('mongoose.set(`strictQuery`, value); (gh-6658)', function() {
+    let strictQueryOriginalValue;
+
+    this.beforeEach(() => strictQueryOriginalValue = mongoose.get('strictQuery'));
+    this.afterEach(() => mongoose.set('strictQuery', strictQueryOriginalValue));
+
+    it('setting `strictQuery` on base sets strictQuery to schema (gh-6658)', function() {
+      // Arrange
+      mongoose.set('strictQuery', 'some value');
+
+      // Act
+      const schema = new Schema();
+
+      // Assert
+      assert.equal(schema.get('strictQuery'), 'some value');
+    });
+
+    it('`strictQuery` set on base gets overwritten by option set on schema (gh-6658)', function() {
+      // Arrange
+      mongoose.set('strictQuery', 'base option');
+
+      // Act
+      const schema = new Schema({}, { strictQuery: 'schema option' });
+
+      // Assert
+      assert.equal(schema.get('strictQuery'), 'schema option');
+    });
+  });
+
+  it('treats dotted paths with no parent as a nested path (gh-9020)', function() {
+    const customerSchema = new Schema({
+      'card.brand': String,
+      'card.last4': String
+    });
+
+    assert.ok(customerSchema.nested['card']);
+  });
+
+  it('allows using `mongoose.Schema.Types.Array` as type (gh-9194)', function() {
+    const schema = new Schema({
+      arr: mongoose.Schema.Types.Array
+    });
+
+    assert.equal(schema.path('arr').caster.instance, 'Mixed');
   });
 });

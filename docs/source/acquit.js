@@ -18,7 +18,7 @@ var files = [
     title: 'Discriminators'
   },
   {
-    input: 'test/docs/promises.test.js',
+    input: 'test/es-next/promises.test.es6.js',
     output: 'promises.html',
     title: 'Promises',
     suffix: `
@@ -84,6 +84,7 @@ files.forEach(function(file) {
   }
 
   exports[file.output] = {
+    input: file.input,
     title: file.title,
     acquitBlocks: blocks,
     suffix: file.suffix,

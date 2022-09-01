@@ -16,14 +16,12 @@ const Schema = mongoose.Schema;
 
 describe('types.embeddeddocumentdeclarative', function() {
   describe('with a parent with a field with type set to a POJO', function() {
-    const ChildSchemaDef = {
-      name: String,
-    };
-
     const ParentSchemaDef = {
       name: String,
       child: {
-        type: ChildSchemaDef,
+        type: {
+          name: String
+        }
       }
     };
 
@@ -39,7 +37,7 @@ describe('types.embeddeddocumentdeclarative', function() {
           name: 'Swamp Guide',
           child: {
             name: 'Tingle',
-            mixedUp: 'very',
+            mixedUp: 'very'
           }
         });
         const tingle = swampGuide.toObject().child;
@@ -50,7 +48,7 @@ describe('types.embeddeddocumentdeclarative', function() {
       });
     });
     describe('with the optional subschema behavior (typePojoToMixed=false)', function() {
-      const ParentSchema = new mongoose.Schema(ParentSchemaDef, {typePojoToMixed: false});
+      const ParentSchema = new mongoose.Schema(ParentSchemaDef, { typePojoToMixed: false });
       it('interprets the POJO as a subschema (gh-7494)', function(done) {
         assert.equal(ParentSchema.paths.child.instance, 'Embedded');
         assert.strictEqual(ParentSchema.paths.child['$isSingleNested'], true);
@@ -62,7 +60,7 @@ describe('types.embeddeddocumentdeclarative', function() {
           name: 'King Daphnes Nohansen Hyrule',
           child: {
             name: 'Princess Zelda',
-            mixedUp: 'not',
+            mixedUp: 'not'
           }
         });
         const princessZelda = kingDaphnes.child.toObject();
@@ -70,6 +68,36 @@ describe('types.embeddeddocumentdeclarative', function() {
         assert.equal(princessZelda.name, 'Princess Zelda');
         assert.strictEqual(princessZelda.mixedUp, undefined);
         done();
+      });
+
+      it('underneath array (gh-8627)', function() {
+        const schema = new Schema({
+          arr: [{
+            nested: {
+              type: { test: String }
+            }
+          }]
+        }, { typePojoToMixed: false });
+
+        assert.ok(schema.path('arr').schema.path('nested').instance !== 'Mixed');
+        assert.ok(schema.path('arr').schema.path('nested.test') instanceof mongoose.Schema.Types.String);
+      });
+
+      it('nested array (gh-8627)', function() {
+        const schema = new Schema({
+          l1: {
+            type: {
+              l2: {
+                type: {
+                  test: String
+                }
+              }
+            }
+          }
+        }, { typePojoToMixed: false });
+
+        assert.ok(schema.path('l1').instance !== 'Mixed');
+        assert.ok(schema.path('l1.l2').instance !== 'Mixed');
       });
     });
   });
@@ -79,12 +107,12 @@ describe('types.embeddeddocumentdeclarative', function() {
       child: {
         name: String,
         type: {
-          type: String,
-        },
+          type: String
+        }
       }
     };
     const ParentSchemaNotMixed = new Schema(ParentSchemaDef);
-    const ParentSchemaNotSubdoc = new Schema(ParentSchemaDef, {typePojoToMixed: false});
+    const ParentSchemaNotSubdoc = new Schema(ParentSchemaDef, { typePojoToMixed: false });
     it('does not create a path for child in either option', function(done) {
       assert.equal(ParentSchemaNotMixed.paths['child.name'].instance, 'String');
       assert.equal(ParentSchemaNotSubdoc.paths['child.name'].instance, 'String');
@@ -104,7 +132,7 @@ describe('types.embeddeddocumentdeclarative', function() {
         child: {
           name: 'Rito Chieftan',
           type: 'Mother',
-          confidence: 10,
+          confidence: 10
         }
       });
       const ritoChieftan = new ParentModelNotSubdoc({
@@ -112,7 +140,7 @@ describe('types.embeddeddocumentdeclarative', function() {
         child: {
           name: 'Prince Komali',
           type: 'Medli',
-          confidence: 1,
+          confidence: 1
         }
       });
 

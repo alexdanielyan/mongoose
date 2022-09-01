@@ -19,11 +19,11 @@ describe('ValidationError', function() {
   describe('#infiniteRecursion', function() {
     it('does not cause RangeError (gh-1834)', function(done) {
       const SubSchema = new Schema({
-        name: {type: String, required: true},
+        name: { type: String, required: true },
         contents: [new Schema({
-          key: {type: String, required: true},
-          value: {type: String, required: true}
-        }, {_id: false})]
+          key: { type: String, required: true },
+          value: { type: String, required: true }
+        }, { _id: false })]
       });
 
       const M = mongoose.model('SubSchema', SubSchema);
@@ -31,7 +31,7 @@ describe('ValidationError', function() {
       const model = new M({
         name: 'Model',
         contents: [
-          {key: 'foo'}
+          { key: 'foo' }
         ]
       });
 
@@ -47,7 +47,7 @@ describe('ValidationError', function() {
   describe('#minDate', function() {
     it('causes a validation error', function(done) {
       const MinSchema = new Schema({
-        appointmentDate: {type: Date, min: Date.now}
+        appointmentDate: { type: Date, min: Date.now }
       });
 
       const M = mongoose.model('MinSchema', MinSchema);
@@ -59,6 +59,7 @@ describe('ValidationError', function() {
       // should fail validation
       model.validate(function(err) {
         assert.notEqual(err, null, 'min Date validation failed.');
+        assert.ok(err.message.startsWith('MinSchema validation failed'));
         model.appointmentDate = new Date(Date.now().valueOf() + 10000);
 
         // should pass validation
@@ -73,7 +74,7 @@ describe('ValidationError', function() {
   describe('#maxDate', function() {
     it('causes a validation error', function(done) {
       const MaxSchema = new Schema({
-        birthdate: {type: Date, max: Date.now}
+        birthdate: { type: Date, max: Date.now }
       });
 
       const M = mongoose.model('MaxSchema', MaxSchema);
@@ -85,6 +86,7 @@ describe('ValidationError', function() {
       // should fail validation
       model.validate(function(err) {
         assert.notEqual(err, null, 'max Date validation failed');
+        assert.ok(err.message.startsWith('MaxSchema validation failed'));
         model.birthdate = Date.now();
 
         // should pass validation
@@ -99,7 +101,7 @@ describe('ValidationError', function() {
   describe('#minlength', function() {
     it('causes a validation error', function(done) {
       const AddressSchema = new Schema({
-        postalCode: {type: String, minlength: 5}
+        postalCode: { type: String, minlength: 5 }
       });
 
       const Address = mongoose.model('MinLengthAddress', AddressSchema);
@@ -111,6 +113,7 @@ describe('ValidationError', function() {
       // should fail validation
       model.validate(function(err) {
         assert.notEqual(err, null, 'String minlegth validation failed.');
+        assert.ok(err.message.startsWith('MinLengthAddress validation failed'));
         model.postalCode = '95125';
 
         // should pass validation
@@ -124,7 +127,7 @@ describe('ValidationError', function() {
     it('with correct error message (gh-4207)', function(done) {
       const old = mongoose.Error.messages;
       mongoose.Error.messages = {
-        'String': {
+        String: {
           minlength: 'woops!'
         }
       };
@@ -142,6 +145,7 @@ describe('ValidationError', function() {
       // should fail validation
       model.validate(function(err) {
         assert.equal(err.errors['postalCode'].message, 'woops!');
+        assert.ok(err.message.startsWith('gh4207 validation failed'));
         mongoose.Error.messages = old;
         done();
       });
@@ -151,7 +155,7 @@ describe('ValidationError', function() {
   describe('#maxlength', function() {
     it('causes a validation error', function(done) {
       const AddressSchema = new Schema({
-        postalCode: {type: String, maxlength: 10}
+        postalCode: { type: String, maxlength: 10 }
       });
 
       const Address = mongoose.model('MaxLengthAddress', AddressSchema);
@@ -163,6 +167,7 @@ describe('ValidationError', function() {
       // should fail validation
       model.validate(function(err) {
         assert.notEqual(err, null, 'String maxlegth validation failed.');
+        assert.ok(err.message.startsWith('MaxLengthAddress validation failed'));
         model.postalCode = '95125';
 
         // should pass validation
@@ -177,8 +182,8 @@ describe('ValidationError', function() {
   describe('#toString', function() {
     it('does not cause RangeError (gh-1296)', function(done) {
       const ASchema = new Schema({
-        key: {type: String, required: true},
-        value: {type: String, required: true}
+        key: { type: String, required: true },
+        value: { type: String, required: true }
       });
 
       const BSchema = new Schema({
@@ -187,7 +192,7 @@ describe('ValidationError', function() {
 
       const M = mongoose.model('A', BSchema);
       const m = new M;
-      m.contents.push({key: 'asdf'});
+      m.contents.push({ key: 'asdf' });
       m.validate(function(err) {
         assert.doesNotThrow(function() {
           String(err);
@@ -198,30 +203,49 @@ describe('ValidationError', function() {
   });
 
   describe('formatMessage', function() {
-    it('replaces properties in a message', function(done) {
-      const props = {base: 'eggs', topping: 'bacon'};
+    it('replaces properties in a message', function() {
+      const props = { base: 'eggs', topping: 'bacon' };
       const message = 'I had {BASE} and {TOPPING} for breakfast';
 
       const result = ValidatorError.prototype.formatMessage(message, props);
       assert.equal(result, 'I had eggs and bacon for breakfast');
-      done();
     });
   });
 
-  it('JSON.stringify() with message (gh-5309)', function(done) {
+  it('JSON.stringify() with message (gh-5309) (gh-9296)', function() {
     model.modelName = 'TestClass';
     const err = new ValidationError(new model());
 
-    err.addError('test', { message: 'Fail' });
+    err.addError('test', new ValidatorError({ message: 'Fail' }));
 
     const obj = JSON.parse(JSON.stringify(err));
     assert.ok(obj.message.indexOf('TestClass validation failed') !== -1,
       obj.message);
     assert.ok(obj.message.indexOf('test: Fail') !== -1,
       obj.message);
-
-    done();
+    assert.ok(obj.errors['test'].message);
 
     function model() {}
+  });
+
+  it('default error message', function() {
+    const err = new ValidationError();
+
+    assert.equal(err.message, 'Validation failed');
+  });
+
+  describe('when user code defines a r/o Error#toJSON', function() {
+    it('shoud not fail', function() {
+      const err = [];
+      const child = require('child_process')
+        .fork('./test/isolated/project-has-error.toJSON.js', { silent: true });
+
+      child.stderr.on('data', function(buf) { err.push(buf); });
+      child.on('exit', function(code) {
+        const stderr = err.join('');
+        assert.equal(stderr, '');
+        assert.equal(code, 0);
+      });
+    });
   });
 });

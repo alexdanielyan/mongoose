@@ -22,9 +22,8 @@ markdown.setOptions({
 });
 
 const tests = [
-  ...acquit.parse(fs.readFileSync('./test/webpack.test.js').toString()),
   ...acquit.parse(fs.readFileSync('./test/geojson.test.js').toString()),
-  ...acquit.parse(fs.readFileSync('./test/docs/transactions.test.js').toString()),
+  ...acquit.parse(fs.readFileSync('./test/es-next/transactions.test.es6.js').toString()),
   ...acquit.parse(fs.readFileSync('./test/schema.alias.test.js').toString()),
   ...acquit.parse(fs.readFileSync('./test/model.middleware.test.js').toString()),
   ...acquit.parse(fs.readFileSync('./test/docs/date.test.js').toString()),
@@ -42,8 +41,9 @@ function getVersion() {
 
 function getLatestLegacyVersion(startsWith) {
   const hist = fs.readFileSync('./History.md', 'utf8').replace(/\r/g, '\n').split('\n');
-  for (let i = 0; i < hist.length; ++i) {
-    const line = (hist[i] || '').trim();
+
+  for (const rawLine of hist) {
+    const line = (rawLine || '').trim();
     if (!line) {
       continue;
     }
@@ -52,6 +52,7 @@ function getLatestLegacyVersion(startsWith) {
       return match[1];
     }
   }
+
   throw new Error('no match found');
 }
 
@@ -74,6 +75,9 @@ append style
     p { line-height: 1.5em }
 
 block content
+  <a class="edit-docs-link" href="#{editLink}" target="_blank">
+    <img src="/docs/images/pencil.svg" />
+  </a>
   :markdown
 ${md.split('\n').map(line => '    ' + line).join('\n')}
 `;
@@ -96,6 +100,10 @@ function pugify(filename, options, newfile) {
   options.linktype = linktype;
   options.href = href;
   options.klass = klass;
+
+  const _editLink = 'https://github.com/Automattic/mongoose/blob/master' +
+    filename.replace(process.cwd(), '');
+  options.editLink = options.editLink || _editLink;
 
   let contents = fs.readFileSync(filename).toString();
 
@@ -121,13 +129,14 @@ function pugify(filename, options, newfile) {
     }
   };
 
+  newfile = newfile || filename.replace('.pug', '.html');
+  options.outputUrl = newfile.replace(process.cwd(), '');
+
   pug.render(contents, options, function(err, str) {
     if (err) {
       console.error(err.stack);
       return;
     }
-
-    newfile = newfile || filename.replace('.pug', '.html');
 
     fs.writeFile(newfile, str, function(err) {
       if (err) {
@@ -144,7 +153,7 @@ files.forEach(function(file) {
   pugify(filename, filemap[file]);
 
   if (process.argv[2] === '--watch') {
-    fs.watchFile(filename, {interval: 1000}, function(cur, prev) {
+    fs.watchFile(filename, { interval: 1000 }, function(cur, prev) {
       if (cur.mtime > prev.mtime) {
         pugify(filename, filemap[file]);
       }
@@ -156,5 +165,7 @@ const _acquit = require('./docs/source/acquit');
 const acquitFiles = Object.keys(_acquit);
 acquitFiles.forEach(function(file) {
   const filename = __dirname + '/docs/acquit.pug';
+  _acquit[file].editLink = 'https://github.com/Automattic/mongoose/blob/master/' +
+    _acquit[file].input.replace(process.cwd(), '');
   pugify(filename, _acquit[file], __dirname + '/docs/' + file);
 });
